@@ -1,46 +1,531 @@
-⚽ PORRA OFICIAL · MUNDIAL 2026
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>🏆 Porra Mundial 2026 — EN VIVO</title>
+<style>
+:root{
+  --v:#1a7f4b;--g:#c9a227;--r:#c0392b;--b:#1a5276;--p:#7b2d8b;
+  --bg:#f0f2f5;--card:#fff;--bd:#e0e0e0;--tx:#2c3e50;--mu:#7f8c8d
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);font-size:14px}
 
- EN VIVO · ESPN + Cálculo automático
-🏆 PORRA MUNDIAL 2026
-104 partidos · 50 jugadores · Bota y Balón de Oro incluidos
-—
-Líder
-—
-Puntos
-0
-En vivo
-—
-Partidos jugados
-Cargando...
-📅 Partidos del día — ESPN 🔄 Actualizar
+/* HERO */
+.hero{background:linear-gradient(135deg,#0d1117 0%,#1a3a2a 50%,#1a2035 100%);color:#fff;padding:36px 16px 26px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'⚽';position:absolute;font-size:180px;opacity:.04;top:-20px;right:-30px;pointer-events:none}
+.badge{display:inline-block;background:var(--g);color:#1a1a1a;font-weight:800;font-size:11px;letter-spacing:2px;padding:4px 14px;border-radius:20px;margin-bottom:12px;text-transform:uppercase}
+.hero h1{font-size:1.85em;font-weight:900;line-height:1.2;margin-bottom:6px;text-shadow:0 2px 6px rgba(0,0,0,.4)}
+.hero .sub{font-size:.85em;opacity:.7;margin-bottom:14px}
+.live-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(192,57,43,.3);border:1px solid rgba(192,57,43,.5);border-radius:20px;padding:3px 12px;font-size:.75em;color:#ff8080;font-weight:700;margin-bottom:14px}
+.dot{width:6px;height:6px;border-radius:50%;background:#ff4444;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.meta{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.mi{background:rgba(255,255,255,.1);border-radius:10px;padding:8px 14px;font-size:11px;text-align:center;min-width:80px}
+.mi strong{display:block;font-size:1.4em;font-weight:900;color:var(--g);line-height:1.1}
+.upd{font-size:10px;opacity:.45;margin-top:10px}
 
-Conectando con ESPN...
-🏅 Clasificación General
+/* LAYOUT */
+.ctn{max-width:960px;margin:0 auto;padding:0 12px 60px}
+.sec{background:var(--card);border-radius:14px;padding:18px;margin-top:14px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.sec.v{border-top:4px solid var(--v)}.sec.g{border-top:4px solid var(--g)}
+.sec.b{border-top:4px solid var(--b)}.sec.r{border-top:4px solid var(--r)}
+.sec.p{border-top:4px solid var(--p)}
+.st{font-size:.95em;font-weight:800;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.st span{display:flex;align-items:center;gap:6px}
+.st.gn{color:var(--v)}.st.gd{color:var(--g)}.st.bl{color:var(--b)}.st.rd{color:var(--r)}.st.pu{color:var(--p)}
 
-Todos
-🥇 Top 10
-🟡 Medio
-🔴 Coleros
-#
-JUGADOR
-TOTAL
-GRUPOS
-KO
-PREMIOS
+/* MATCHES */
+.mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px}
+.mc{background:#f8f9fa;border-radius:10px;padding:12px 10px;text-align:center;border:1px solid #e8e8e8;cursor:pointer;transition:.15s}
+.mc:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.mc.live{border-color:var(--r);box-shadow:0 0 0 2px rgba(192,57,43,.2)}
+.mc.ft{border-color:#c8e6c9}
+.mg{font-size:.68em;color:var(--mu);font-weight:700;text-transform:uppercase}
+.mteam{font-weight:700;font-size:.88em;margin:2px 0;line-height:1.2}
+.mscore{font-size:1.9em;font-weight:900;letter-spacing:3px;margin:4px 0;color:var(--v)}
+.mscore.lv{color:var(--r);animation:pulse 2s infinite}
+.mscore.pd{font-size:1em;color:var(--mu);font-weight:400;letter-spacing:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.mstat{display:inline-block;padding:2px 9px;border-radius:8px;font-size:.68em;font-weight:700;margin-top:3px}
+.sft{background:#e8f5ee;color:var(--v)}.slv{background:#fde8e8;color:var(--r)}.sns{background:#f0f0f0;color:var(--mu)}
+.porratag{font-size:.63em;color:var(--v);margin-top:3px;font-weight:600}
 
-Calculando...
-📊 Estadísticas
-—
-LÍDER (PTS)
-—
-PROMEDIO
-—
-CON 0 PTS
-—
-PARTIDOS JUGADOS
-Cargando análisis...
-🏆 Premios — Bota & Balón de Oro + Campeones⚙️ Admin
+/* TABLE */
+.search{width:100%;padding:8px 12px;border:2px solid var(--bd);border-radius:8px;font-size:13px;margin-bottom:10px;outline:none;transition:.2s}
+.search:focus{border-color:var(--v)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{background:var(--g);color:#1a1a1a}
+.sec.v thead tr{background:var(--v);color:#fff}
+.sec.b thead tr{background:var(--b);color:#fff}
+.sec.p thead tr{background:var(--p);color:#fff}
+th{padding:8px 9px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+td{padding:7px 9px;border-bottom:1px solid #f0f0f0}
+tr:last-child td{border-bottom:none}
+tr:nth-child(even) td{background:#fafafa}
+tr.hl td{background:#fffde7!important}
+.rk{font-weight:900}
+.r1{color:var(--g)}.r2{color:#9e9e9e}.r3{color:#a1887f}
+.bpt{border-radius:6px;padding:2px 8px;font-weight:800}
+.sec.g .bpt{background:rgba(201,162,39,.15);color:#956d00}
+.sec.v .bpt{background:rgba(26,127,75,.12);color:var(--v)}
 
-Cargando premios...
-🏆 Porra XXIII Mundial USA·MEX·CAN 2026 · 50 participantes · 104 partidos
-Puntos calculados automáticamente · Datos ESPN · Sin intervención manual
+/* STATS */
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:10px 0}
+.st2{background:#f8f9fa;border-radius:10px;padding:11px;text-align:center;border:1px solid #eee}
+.st2 .val{font-size:1.6em;font-weight:900;color:var(--v)}
+.st2.g .val{color:var(--g)}.st2.r .val{color:var(--r)}.st2.p .val{color:var(--p)}
+.st2 .lbl{font-size:10px;color:var(--mu);text-transform:uppercase;margin-top:2px}
+
+/* PODIUM */
+.pod{display:flex;justify-content:center;align-items:flex-end;gap:8px;padding:14px 10px 8px}
+.pc{text-align:center;flex:1;max-width:120px}
+.pb{border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-size:1.7em}
+.p1 .pb{height:85px;background:linear-gradient(180deg,#f5a623,#c8870a)}
+.p2 .pb{height:62px;background:linear-gradient(180deg,#b0bec5,#78909c)}
+.p3 .pb{height:48px;background:linear-gradient(180deg,#a1887f,#6d4c41)}
+.pn{font-size:.7em;font-weight:800;margin-top:4px;line-height:1.2}
+.pp{font-size:1em;font-weight:900;color:var(--g)}
+
+/* AWARDS */
+.award-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:8px 0}
+.award-card{background:#f8f9fa;border-radius:10px;padding:14px;border:1px solid #e8e8e8}
+.award-card.known{border-color:var(--p);background:rgba(123,45,139,.04)}
+.award-title{font-size:.75em;font-weight:800;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.award-result{font-size:1.1em;font-weight:900;color:var(--p);margin-bottom:6px}
+.award-pending{font-size:.8em;color:var(--mu);font-style:italic;margin-bottom:6px}
+.award-pts{font-size:.75em;font-weight:700;margin-bottom:8px}
+.award-preds{max-height:120px;overflow-y:auto}
+.award-pred-row{display:flex;justify-content:space-between;font-size:.75em;padding:2px 0;border-bottom:1px solid #f0f0f0}
+.award-pred-row:last-child{border:none}
+.award-pred-name{color:var(--mu)}
+.award-pred-val{font-weight:700}
+.award-pred-val.hit{color:var(--v)}
+.award-pred-val.miss{color:var(--r)}
+
+/* TABS */
+.tabs{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
+.tab{padding:4px 11px;border-radius:7px;border:1.5px solid var(--bd);background:#fff;cursor:pointer;font-weight:600;font-size:11px;transition:.15s}
+.tab.ac{background:var(--v);color:#fff;border-color:var(--v)}
+
+/* ADMIN */
+.admin-form{background:#f8f9fa;border-radius:10px;padding:14px;margin-bottom:12px}
+.admin-form label{display:block;font-size:.8em;font-weight:700;margin-bottom:4px;color:var(--mu)}
+.admin-form input{width:100%;padding:7px 10px;border:1.5px solid var(--bd);border-radius:7px;font-size:13px;margin-bottom:8px;outline:none}
+.admin-form input:focus{border-color:var(--p)}
+.save-btn{background:var(--p);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700;cursor:pointer;font-size:12px}
+
+/* MISC */
+.rbtn{background:var(--v);color:#fff;border:none;padding:6px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:4px}
+.rbtn:disabled{opacity:.5;cursor:not-allowed}
+.spin{animation:spin 1s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader{text-align:center;padding:30px;color:var(--mu)}
+.lring{display:inline-block;width:28px;height:28px;border:3px solid rgba(26,127,75,.2);border-top-color:var(--v);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:6px}
+blockquote{border-left:4px solid var(--g);padding:8px 12px;background:#fffde7;border-radius:0 8px 8px 0;margin:8px 0;font-style:italic;color:#555;font-size:.85em}
+.overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:100;overflow-y:auto;padding:20px}
+.overlay.open{display:flex;align-items:flex-start;justify-content:center}
+.obox{background:#fff;border-radius:14px;width:100%;max-width:580px;padding:22px;margin:auto;position:relative;max-height:90vh;overflow-y:auto}
+.cbtn{position:absolute;top:12px;right:12px;background:none;border:none;font-size:1.3em;cursor:pointer;color:var(--mu)}
+footer{text-align:center;padding:22px 14px;color:var(--mu);font-size:11px;border-top:1px solid var(--bd)}
+@media(max-width:600px){.hero h1{font-size:1.4em}.pb{font-size:1.4em}.sg{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="badge">⚽ Porra Oficial · Mundial 2026</div>
+  <div class="live-pill"><span class="dot"></span>&nbsp;EN VIVO · ESPN + Cálculo automático</div>
+  <h1>🏆 PORRA MUNDIAL 2026</h1>
+  <div class="sub">104 partidos · 50 jugadores · Bota y Balón de Oro incluidos</div>
+  <div class="meta">
+    <div class="mi"><strong id="h-leader">—</strong>Líder</div>
+    <div class="mi"><strong id="h-pts">—</strong>Puntos</div>
+    <div class="mi"><strong id="h-live">0</strong>En vivo</div>
+    <div class="mi"><strong id="h-played">—</strong>Partidos jugados</div>
+  </div>
+  <div class="upd" id="upd">Cargando...</div>
+</div>
+
+<div class="ctn">
+
+  <!-- PARTIDOS DEL DÍA -->
+  <div class="sec v">
+    <div class="st gn">
+      <span>📅 Partidos del día — ESPN</span>
+      <button class="rbtn" id="rbtn" onclick="load(true)"><span id="ric">🔄</span> Actualizar</button>
+    </div>
+    <div id="matches"><div class="loader"><div class="lring"></div><br>Conectando con ESPN...</div></div>
+  </div>
+
+  <!-- CLASIFICACIÓN -->
+  <div class="sec g">
+    <div class="st gd"><span>🏅 Clasificación General</span></div>
+    <input class="search" id="srch" placeholder="🔍 Buscar jugador..." oninput="filterTbl()">
+    <div id="podium"></div>
+    <div class="tabs">
+      <div class="tab ac" onclick="setTab('all',this)">Todos</div>
+      <div class="tab" onclick="setTab('top',this)">🥇 Top 10</div>
+      <div class="tab" onclick="setTab('mid',this)">🟡 Medio</div>
+      <div class="tab" onclick="setTab('bot',this)">🔴 Coleros</div>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Jugador</th><th>Total</th><th>Grupos</th><th>KO</th><th>Premios</th><th></th></tr></thead>
+      <tbody id="tbody"><tr><td colspan="7" class="loader">Calculando...</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- ESTADÍSTICAS -->
+  <div class="sec b">
+    <div class="st bl"><span>📊 Estadísticas</span></div>
+    <div class="sg">
+      <div class="st2 g"><div class="val" id="s-max">—</div><div class="lbl">Líder (pts)</div></div>
+      <div class="st2"><div class="val" id="s-avg">—</div><div class="lbl">Promedio</div></div>
+      <div class="st2 r"><div class="val" id="s-zero">—</div><div class="lbl">Con 0 pts</div></div>
+      <div class="st2"><div class="val" id="s-played">—</div><div class="lbl">Partidos jugados</div></div>
+    </div>
+    <blockquote id="narr">Cargando análisis...</blockquote>
+  </div>
+
+  <!-- PREMIOS: BOTA & BALÓN + HONORES -->
+  <div class="sec p">
+    <div class="st pu"><span>🏆 Premios — Bota & Balón de Oro + Campeones</span><button class="rbtn" style="background:var(--p)" onclick="openAdmin()">⚙️ Admin</button></div>
+    <div class="award-grid" id="awards">
+      <div class="loader"><div class="lring"></div><br>Cargando premios...</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- DETALLE PARTIDO -->
+<div class="overlay" id="ov" onclick="closeOv(event)">
+  <div class="obox">
+    <button class="cbtn" onclick="closeOverlay()">✕</button>
+    <div id="ov-content"></div>
+  </div>
+</div>
+
+<!-- ADMIN PREMIOS -->
+<div class="overlay" id="admin-ov" onclick="closeAdminOv(event)">
+  <div class="obox">
+    <button class="cbtn" onclick="closeAdmin()">✕</button>
+    <h3 style="margin-bottom:14px;color:var(--p)">⚙️ Actualizar Premios</h3>
+    <p style="font-size:.82em;color:var(--mu);margin-bottom:12px">Ingresa los ganadores cuando se conozcan. Los puntos se calculan automáticamente.</p>
+    <div id="admin-form-content"></div>
+    <button class="save-btn" onclick="saveAwards()">💾 Guardar</button>
+    <div id="admin-msg" style="margin-top:8px;font-size:.82em;color:var(--v)"></div>
+  </div>
+</div>
+
+<footer>
+  🏆 Porra XXIII Mundial USA·MEX·CAN 2026 · 50 participantes · 104 partidos<br>
+  Puntos calculados automáticamente · Datos ESPN · Sin intervención manual
+</footer>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────
+let standings = [], todayMatches = [], awardsData = [];
+let currentTab = 'all';
+let adminData = {};
+
+// ─── LOAD ─────────────────────────────────────────────────────────────
+async function load(manual = false) {
+  if (manual) {
+    document.getElementById('rbtn').disabled = true;
+    const ic = document.getElementById('ric');
+    ic.className = 'spin'; ic.textContent = '⏳';
+  }
+  try {
+    const r = await fetch('/api/live');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+
+    standings = d.standings || [];
+    todayMatches = d.todayMatches || [];
+    awardsData = d.awardsDisplay || [];
+
+    renderHero(d.stats);
+    renderMatches(todayMatches);
+    renderStandings(standings);
+    renderStats(d.stats, standings);
+    renderAwards(awardsData);
+    renderNarrative(d.stats, standings);
+
+    const ts = new Date(d.lastUpdated);
+    document.getElementById('upd').textContent = `Última actualización: ${ts.toLocaleTimeString('es-CL')} · Auto-refresh 45s`;
+  } catch (e) {
+    document.getElementById('matches').innerHTML = `<p style="color:var(--r);text-align:center;padding:20px">⚠️ ${e.message}</p>`;
+  }
+  if (manual) {
+    document.getElementById('rbtn').disabled = false;
+    const ic = document.getElementById('ric');
+    ic.className = ''; ic.textContent = '🔄';
+  }
+}
+
+// ─── HERO ─────────────────────────────────────────────────────────────
+function renderHero(s) {
+  if (!s) return;
+  document.getElementById('h-leader').textContent = (s.leader||'-').split(' ')[0];
+  document.getElementById('h-pts').textContent = s.leaderPts + ' pts';
+  document.getElementById('h-live').textContent = s.liveCount > 0 ? s.liveCount + ' ⚽' : '0';
+  document.getElementById('h-played').textContent = todayMatches.filter(m=>m.status==='FT').length;
+}
+
+// ─── MATCHES ──────────────────────────────────────────────────────────
+function renderMatches(ms) {
+  const el = document.getElementById('matches');
+  if (!ms.length) { el.innerHTML = '<p style="color:var(--mu);text-align:center;padding:20px">Sin partidos registrados hoy en ESPN</p>'; return; }
+
+  let html = '<div class="mg">';
+  ms.forEach(m => {
+    const isFT = m.status==='FT', isLV = m.status==='LIVE';
+    const cls = isLV ? 'live' : isFT ? 'ft' : '';
+    const score = (isFT||isLV)
+      ? `<div class="mscore${isLV?' lv':''}">${m.homeScore} – ${m.awayScore}</div>`
+      : `<div class="mscore pd">vs</div>`;
+    const stat = isLV
+      ? `<span class="mstat slv">🔴 EN VIVO${m.clock?' '+m.clock+"'":''}` + '</span>'
+      : isFT ? `<span class="mstat sft">✅ Final</span>`
+             : `<span class="mstat sns">⏰ ${m.time||'Pendiente'}</span>`;
+    const porra = m.excelName
+      ? `<div class="porratag">✅ En la porra</div>`
+      : `<div style="font-size:.63em;color:var(--mu);margin-top:3px">·</div>`;
+
+    html += `<div class="mc ${cls}" onclick="showMatch('${encodeURIComponent(m.excelName||'')}','${encodeURIComponent(m.espnHome)} – ${encodeURIComponent(m.espnAway)}')">
+      <div class="mg">${m.date}</div>
+      <div class="mteam">${m.espnHome}</div>
+      ${score}
+      <div class="mteam">${m.espnAway}</div>
+      ${stat}${porra}
+    </div>`;
+  });
+  el.innerHTML = html + '</div>';
+}
+
+// ─── STANDINGS ────────────────────────────────────────────────────────
+function renderStandings(pl) {
+  if (!pl.length) return;
+  const top = pl.slice(0,3);
+  document.getElementById('podium').innerHTML = `
+    <div class="pod">
+      <div class="pc p2"><div class="pb">🥈</div><div class="pn">${sn(top[1]?.name)}</div><div class="pp">${top[1]?.total||0}</div></div>
+      <div class="pc p1"><div class="pb">🥇</div><div class="pn">${sn(top[0]?.name)}</div><div class="pp">${top[0]?.total||0}</div></div>
+      <div class="pc p3"><div class="pb">🥉</div><div class="pn">${sn(top[2]?.name)}</div><div class="pp">${top[2]?.total||0}</div></div>
+    </div>`;
+  renderTbl(pl);
+}
+
+function sn(n) { if(!n)return''; const p=n.trim().split(' '); return p.length>1?p[0]+'<br>'+p.slice(1).join(' '):n; }
+
+function renderTbl(pl) {
+  const n = pl.length, q1=Math.ceil(n*.33), q2=Math.ceil(n*.66);
+  let filtered = pl;
+  if (currentTab==='top') filtered=pl.slice(0,10);
+  else if (currentTab==='mid') filtered=pl.slice(q1,q2);
+  else if (currentTab==='bot') filtered=pl.slice(q2);
+
+  let html='';
+  filtered.forEach(p => {
+    const gi = pl.indexOf(p);
+    const zone = gi<q1?'🟢':gi<q2?'🟡':'🔴';
+    const rk = p.pos===1?'rk r1':p.pos<=3?'rk r2':p.pos<=10?'rk r3':'rk';
+    const s = p.bySection||{};
+    const ko = (s.ko_partidos||0)+(s.ko_equipos||0);
+    const premios = (s.honor||0)+(s.bota_balon||0);
+    html += `<tr>
+      <td class="${rk}">${p.pos}</td>
+      <td><strong>${p.name}</strong></td>
+      <td><span class="bpt">${p.total}</span></td>
+      <td>${s.grupos||0}</td>
+      <td>${ko}</td>
+      <td>${premios}</td>
+      <td>${zone}</td>
+    </tr>`;
+  });
+  document.getElementById('tbody').innerHTML = html || '<tr><td colspan="7" style="text-align:center;color:var(--mu)">Sin datos</td></tr>';
+}
+
+function setTab(t,el) {
+  currentTab=t;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('ac'));
+  el.classList.add('ac');
+  renderTbl(standings);
+}
+
+function filterTbl() {
+  const q = document.getElementById('srch').value.toLowerCase();
+  document.querySelectorAll('#tbody tr').forEach(r => {
+    const nm = r.cells[1]?.textContent.toLowerCase()||'';
+    r.style.display = nm.includes(q)?'':'none';
+    r.classList.toggle('hl', q.length>1 && nm.includes(q));
+  });
+}
+
+// ─── STATS ────────────────────────────────────────────────────────────
+function renderStats(s, pl) {
+  if (!s) return;
+  document.getElementById('s-max').textContent = s.leaderPts||0;
+  document.getElementById('s-avg').textContent = s.avgPts||0;
+  document.getElementById('s-zero').textContent = s.withZero||0;
+  document.getElementById('s-played').textContent = todayMatches.filter(m=>m.status==='FT').length;
+}
+
+function renderNarrative(s, pl) {
+  if (!s||!pl.length) return;
+  const leader=pl[0], last=pl[pl.length-1];
+  const tied=pl.filter(p=>p.pos===1).length;
+  const live=s.liveCount>0?`⚽ <strong>${s.liveCount} partido(s) en vivo</strong> — puntos cambiando ahora mismo.`:'';
+  document.getElementById('narr').innerHTML =
+    `🥇 ${tied>1?`<strong>${tied} jugadores empatan en 1°</strong>`:
+    `<strong>${leader.name}</strong> lidera`} con ${leader.total} pts. Promedio: ${s.avgPts} · Último: ${last.name} (${last.total} pts) · Brecha: ${leader.total-last.total} pts. ${live}`;
+}
+
+// ─── AWARDS ───────────────────────────────────────────────────────────
+function renderAwards(awards) {
+  if (!awards.length) return;
+  let html='<div class="award-grid">';
+  awards.forEach(a => {
+    const known = !!a.result;
+    const icon = a.type==='team'
+      ? (a.label.includes('Campe')?'🥇':a.label.includes('Sub')?'🥈':'🥉')
+      : (a.label.includes('Bota')?
+          (a.label.includes('Oro')?'👟':a.label.includes('Plata')?'🥈':'🥉')
+        :(a.label.includes('Oro')?'🏆':a.label.includes('Plata')?'🥈':'🥉'));
+
+    html += `<div class="award-card${known?' known':''}">
+      <div class="award-title">${icon} ${a.label.split('(')[0].trim()}</div>
+      ${known
+        ? `<div class="award-result">${a.result}</div>`
+        : `<div class="award-pending">⏳ Pendiente</div>`}
+      <div class="award-pts">Puntos: ${a.pts}</div>
+      <div class="award-preds">`;
+
+    // Show predictions
+    const preds = a.predictions || [];
+    // Sort: correct first if known, then alphabetical
+    const sorted = [...preds].sort((x,y) => {
+      if (known) return (y.correct?1:0)-(x.correct?1:0);
+      return x.player.localeCompare(y.player);
+    });
+    sorted.slice(0,15).forEach(p => {
+      const cls = known ? (p.correct?'hit':'miss') : '';
+      const mark = known ? (p.correct?'✅':'') : '';
+      html += `<div class="award-pred-row">
+        <span class="award-pred-name">${p.player.split(' ')[0]}</span>
+        <span class="award-pred-val ${cls}">${mark} ${p.pred}</span>
+      </div>`;
+    });
+    if (sorted.length > 15) html += `<div style="font-size:.7em;color:var(--mu);padding-top:3px">+${sorted.length-15} más...</div>`;
+
+    html += `</div></div>`;
+  });
+  document.getElementById('awards').innerHTML = html + '</div>';
+}
+
+// ─── ADMIN ────────────────────────────────────────────────────────────
+async function openAdmin() {
+  try {
+    const r = await fetch('/api/admin/awards');
+    adminData = await r.json();
+  } catch { adminData = { awards:{}, honors:{}, awardNames:[], honorNames:[] }; }
+
+  let html = '';
+  (adminData.honorNames||[]).forEach(n => {
+    const val = adminData.honors?.[n] || '';
+    html += `<div class="admin-form">
+      <label>${n}</label>
+      <input type="text" id="hon_${encodeURIComponent(n)}" placeholder="Ej: España" value="${val}">
+    </div>`;
+  });
+  (adminData.awardNames||[]).forEach(n => {
+    const val = adminData.awards?.[n] || '';
+    const shortN = n.split('(')[0].trim();
+    html += `<div class="admin-form">
+      <label>${shortN}</label>
+      <input type="text" id="aw_${encodeURIComponent(n)}" placeholder="Nombre del jugador" value="${val}">
+    </div>`;
+  });
+
+  document.getElementById('admin-form-content').innerHTML = html;
+  document.getElementById('admin-ov').classList.add('open');
+}
+
+async function saveAwards() {
+  const honors = {}, awards = {};
+  (adminData.honorNames||[]).forEach(n => {
+    const el = document.getElementById(`hon_${encodeURIComponent(n)}`);
+    if (el && el.value.trim()) honors[n] = el.value.trim();
+  });
+  (adminData.awardNames||[]).forEach(n => {
+    const el = document.getElementById(`aw_${encodeURIComponent(n)}`);
+    if (el && el.value.trim()) awards[n] = el.value.trim();
+  });
+
+  try {
+    const r = await fetch('/api/admin/awards', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ honors, awards })
+    });
+    const d = await r.json();
+    document.getElementById('admin-msg').textContent = d.ok ? '✅ Guardado. Recargando...' : '❌ Error: '+d.error;
+    if (d.ok) { setTimeout(() => { closeAdmin(); load(); }, 1000); }
+  } catch (e) {
+    document.getElementById('admin-msg').textContent = '❌ ' + e.message;
+  }
+}
+
+function closeAdmin() { document.getElementById('admin-ov').classList.remove('open'); }
+function closeAdminOv(e) { if(e.target===document.getElementById('admin-ov')) closeAdmin(); }
+
+// ─── MATCH DETAIL ─────────────────────────────────────────────────────
+async function showMatch(encodedName, fallback) {
+  const name = decodeURIComponent(encodedName);
+  if (!name) return;
+  document.getElementById('ov').classList.add('open');
+  document.getElementById('ov-content').innerHTML = '<div class="loader"><div class="lring"></div><br>Cargando pronósticos...</div>';
+  try {
+    const r = await fetch('/api/match/'+encodeURIComponent(name));
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+
+    const isFinal = d.result && d.result!=='-';
+    let html = `<h2 style="font-size:1.1em;font-weight:900;margin-bottom:4px">${d.match}</h2>
+      <p style="color:var(--mu);font-size:.8em;margin-bottom:10px">${d.date} · Bonus ×${d.bonus} · Máx: ${9*d.bonus} pts</p>`;
+
+    if (isFinal) {
+      const sc = d.result.split('|')[1]||'?';
+      html += `<div style="text-align:center;margin-bottom:12px">
+        <span style="font-size:2em;font-weight:900;color:var(--v)">${sc}</span>
+        <span style="display:block;font-size:.75em;color:var(--mu)">Resultado final</span></div>`;
+    } else {
+      html += `<p style="text-align:center;color:var(--g);font-weight:700;margin-bottom:12px">⏳ Pendiente</p>`;
+    }
+
+    html += `<table style="font-size:12px"><thead><tr style="background:var(--b);color:#fff">
+      <th>#</th><th>Jugador</th><th>Pronóstico</th><th>Puntos</th></tr></thead><tbody>`;
+    d.preds.forEach((p,i) => {
+      const pts = p.pts!=null?p.pts:'—';
+      const bg = pts>0?'background:rgba(26,127,75,.07)':'';
+      html+=`<tr style="${bg}"><td>${i+1}</td><td>${p.name}</td>
+        <td style="font-weight:700">${p.pred}</td>
+        <td style="font-weight:900;color:${pts>0?'var(--v)':'var(--mu)'}">${pts}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('ov-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('ov-content').innerHTML = `<p style="color:var(--r)">Error: ${e.message}</p>`;
+  }
+}
+
+function closeOverlay() { document.getElementById('ov').classList.remove('open'); }
+function closeOv(e) { if(e.target===document.getElementById('ov')) closeOverlay(); }
+
+// ─── BOOT ─────────────────────────────────────────────────────────────
+load();
+setInterval(load, 45000);
+</script>
+</body>
+</html>
