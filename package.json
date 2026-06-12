@@ -1,0 +1,10 @@
+{
+  "name": "porra-mundial-2026-live",
+  "version": "3.0.0",
+  "description": "Porra Mundial 2026 — 104 partidos, 50 jugadores, Bota y Balón de Oro automáticos",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "dev": "nodemon server.js" },
+  "dependencies": { "express": "^4.18.2", "node-fetch": "^3.3.2" },
+  "devDependencies": { "nodemon": "^3.0.1" },
+  "engines": { "node": ">=18.0.0" }
+}
