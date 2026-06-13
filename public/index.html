@@ -794,7 +794,6 @@ function renderAwards(awards) {
 
   // ── Table ────────────────────────────────────────────────────────────
   const firstAward=awards[0];
-  // predictions is an array [{player,pred,correct}]
   const playerNames=(firstAward.predictions||[]).map(p=>p.player);
   let orderedPlayers;
   if(standings.length){
@@ -833,7 +832,7 @@ function renderAwards(awards) {
       const known=a&&!!a.result;
       let cell=pred?pred.pred:'-';
       let style='padding:6px;text-align:center;font-size:.78em;';
-      if(known&&pred&&pred.correct!==null){
+      if(known&&pred){
         style+=pred.correct?'color:var(--v);font-weight:800;':'color:var(--r);opacity:.7;text-decoration:line-through;';
         if(pred.correct) cell='✅ '+cell;
       }
