@@ -305,6 +305,8 @@ app.get('/api/jornada', async(req,res)=>{
 });
 
 app.get('/api/analysis/:type', async(req,res)=>{
+  const auth=req.headers['x-admin-token'];
+  if(auth!==Buffer.from(ADMIN_PASSWORD).toString('base64')) return res.status(401).json({ok:false,error:'No autorizado'});
   try {
     const {type}=req.params;
     if(!['impacto','cronica'].includes(type)) return res.status(400).json({ok:false});
