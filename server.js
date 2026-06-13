@@ -182,15 +182,13 @@ async function getResults() {
 // ─── Helpers ────────────────────────────────────────────────────────────
 function getTodayMatches(allMatches) {
   const today = getTodayStr();
-  // Also include yesterday (porra.json stores local stadium date; a game at 18:00 UTC-7
-  // = 01:00 next day Santiago, so its date field is one day behind Santiago's date)
-  const yesterday = new Date(new Date().getTime() - 4*3600000 - 86400000).toISOString().slice(0,10);
+  const ms = new Date().getTime() - 4*3600000 - 86400000;
+  const yesterday = new Date(ms).toISOString().slice(0,10);
   return allMatches.filter(m=>m.date===today || m.date===yesterday);
 }
 
 function getJornadaMatches(dateStr, results) {
   const allScore = [...PORRA.group_score,...PORRA.ko_score];
-  // dateStr can be string or array (to handle UTC-7 games spanning two Santiago dates)
   const dates = Array.isArray(dateStr) ? dateStr : [dateStr];
   return allScore.filter(m=>dates.includes(m.date)).map(m=>{
     const r=results[m.name];
