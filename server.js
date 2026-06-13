@@ -282,8 +282,8 @@ app.get('/api/live', async(req,res)=>{
     const avg=standings.length?(standings.reduce((s,p)=>s+p.total,0)/standings.length).toFixed(1):0;
     const todayMs=getTodayMatches(matches);
     const awardsDisplay=[
-      ...PORRA.honors.map(h=>({label:h.name,pts:h.max_pts,type:'team',result:honorsState[h.name]||null,predictions:Object.entries(h.predictions).map(([n,p])=>({player:n,pred:p.pred,correct:honorsState[h.name]?namesMatch(p.pred,honorsState[h.name]):null}))})),
-      ...PORRA.player_awards.map(a=>({label:a.name,pts:a.max_pts,type:'player',result:awardsState[a.name.trim()]||null,predictions:Object.entries(a.predictions).map(([n,p])=>({player:n,pred:p.pred,correct:awardsState[a.name.trim()]?namesMatch(p.pred,awardsState[a.name.trim()]):null}))}))
+      ...PORRA.honors.map(h=>({label:h.name,pts:h.max_pts,type:'team',result:honorsState[h.name]||null,predictions:Object.fromEntries(Object.entries(h.predictions).map(([n,p])=>[n,{pred:p.pred,correct:honorsState[h.name]?namesMatch(p.pred,honorsState[h.name]):null}]))})),
+      ...PORRA.player_awards.map(a=>({label:a.name,pts:a.max_pts,type:'player',result:awardsState[a.name.trim()]||null,predictions:Object.fromEntries(Object.entries(a.predictions).map(([n,p])=>[n,{pred:p.pred,correct:awardsState[a.name.trim()]?namesMatch(p.pred,awardsState[a.name.trim()]):null}]))}))
     ];
     res.json({ok:true,standings,todayMatches:todayMs,allMatches:matches,awardsDisplay,
       stats:{liveCount,leaderPts:standings[0]?.total||0,leader:standings[0]?.name||'-',avgPts:avg,withZero:standings.filter(p=>p.total===0).length,total:standings.length,playedCount:Object.keys(results).length},
