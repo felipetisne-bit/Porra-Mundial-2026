@@ -580,6 +580,37 @@ function renderPronosticos(pronosticos) {
     const hasResult=m.result&&m.result!=='-';
     const resLabel=hasResult?m.result.split('|')[1]||m.result:'⏳ Pendiente';
     const statCls=m.status==='LIVE'?'slv':m.status==='FT'?'sft':'sns';
+
+    // ── Stats per match ──────────────────────────────────────────────
+    const total=m.players.length;
+    // Sign distribution
+    const signs={1:0,X:0,2:0};
+    const scoreVotes={};
+    m.players.forEach(p=>{
+      if(!p.pred||p.pred==='-') return;
+      const parts=p.pred.split('|');
+      const sign=parts[0];
+      if(sign==='1'||sign==='X'||sign==='2') signs[sign]++;
+      if(parts[1]) scoreVotes[parts[1]]=(scoreVotes[parts[1]]||0)+1;
+    });
+    const topScore=Object.entries(scoreVotes).sort((a,b)=>b[1]-a[1])[0];
+    const pct=v=>total?Math.round(v/total*100):0;
+    // Results stats
+    const exactCount=hasResult?m.players.filter(p=>p.pts===m.maxPts&&m.maxPts>0).length:0;
+    const signCount=hasResult?m.players.filter(p=>p.pts>0).length:0;
+    const zeroCount=hasResult?m.players.filter(p=>p.pts===0).length:0;
+
+    // Sign bar
+    const signBar=(label,val,color)=>{
+      const p=pct(val);
+      return '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">'
+        +'<div style="width:14px;font-size:.7em;font-weight:800;color:'+color+'">'+label+'</div>'
+        +'<div style="flex:1;background:#f0f0f0;border-radius:3px;height:7px">'
+        +'<div style="background:'+color+';height:7px;border-radius:3px;width:'+p+'%"></div></div>'
+        +'<div style="font-size:.68em;color:#666;width:32px;text-align:right">'+val+' ('+p+'%)</div>'
+        +'</div>';
+    };
+
     html+=`<div class="pron-match">
       <div class="pron-header">
         <div>
@@ -590,6 +621,31 @@ function renderPronosticos(pronosticos) {
           <div class="pron-result">${resLabel}</div>
           <span class="mstat ${statCls}" style="font-size:.68em">${m.status==='LIVE'?'🔴 EN VIVO':m.status==='FT'?'✅ Final':'⏰ Pendiente'}</span>
         </div>
+      </div>
+      <div style="background:#f8f9fa;border-radius:8px;padding:10px 12px;margin-bottom:10px;display:grid;grid-template-columns:1fr 1fr${hasResult?' 1fr':''};gap:12px">
+        <div>
+          <div style="font-size:.65em;font-weight:800;color:var(--mu);text-transform:uppercase;margin-bottom:5px">📊 Distribución</div>
+          ${signBar('1',signs[1],'#2196f3')}
+          ${signBar('X',signs['X'],'#ff9800')}
+          ${signBar('2',signs[2],'#e91e63')}
+        </div>
+        <div>
+          <div style="font-size:.65em;font-weight:800;color:var(--mu);text-transform:uppercase;margin-bottom:5px">🎯 Favorito del grupo</div>
+          ${topScore
+            ? '<div style="font-size:1.1em;font-weight:900;color:var(--p);margin-bottom:2px">'+topScore[0]+'</div>'
+              +'<div style="font-size:.7em;color:var(--mu)">'+topScore[1]+' de '+total+' jugadores ('+pct(topScore[1])+'%)</div>'
+            : '<div style="font-size:.75em;color:var(--mu)">Sin pronósticos</div>'
+          }
+          <div style="font-size:.68em;color:var(--mu);margin-top:6px">💰 En juego: hasta ${m.maxPts} pts</div>
+        </div>
+        ${hasResult?`<div>
+          <div style="font-size:.65em;font-weight:800;color:var(--mu);text-transform:uppercase;margin-bottom:5px">📋 Resultado</div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="font-size:.75em"><span style="color:var(--v);font-weight:700">🎯 Exacto: ${exactCount}</span> <span style="color:var(--mu)">(${pct(exactCount)}%)</span></div>
+            <div style="font-size:.75em"><span style="color:#2196f3;font-weight:700">✅ Signo: ${signCount}</span> <span style="color:var(--mu)">(${pct(signCount)}%)</span></div>
+            <div style="font-size:.75em"><span style="color:var(--r);font-weight:700">❌ Cero: ${zeroCount}</span> <span style="color:var(--mu)">(${pct(zeroCount)}%)</span></div>
+          </div>
+        </div>`:''}
       </div>
       <div class="pron-grid">`;
     m.players.forEach(p=>{
