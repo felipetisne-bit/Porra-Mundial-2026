@@ -354,7 +354,7 @@ async function load(manual=false) {
     const r=await fetch('/api/live'); if(!r.ok) throw new Error('HTTP '+r.status);
     const d=await r.json(); if(!d.ok) throw new Error(d.error);
     standings=d.standings||[]; todayMatches=d.todayMatches||[]; awardsData=d.awardsDisplay||[];
-    if(document.getElementById('page-premios').classList.contains('ac')&&awardsData.length) renderAwards(awardsData);
+    if(awardsData.length) renderAwards(awardsData);
     renderHero(d.stats); renderMatches(todayMatches); renderStandings(standings);
     renderStats(d.stats,standings); renderNarrative(d.stats,standings);
     const ts=new Date(d.lastUpdated);
