@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'porra2026';
 const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY || '';
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -257,21 +257,20 @@ function buildPremiosFecha(jornadaMatches) {
   };
 }
 
-// FIX #2: ChatGPT instead of Claude
 async function generateGPTAnalysis(type, context) {
-  if(!OPENAI_API_KEY) return '⚠️ Configura OPENAI_API_KEY en Railway Variables para activar esta función. Ve a railway.app → tu proyecto → Variables → New Variable → OPENAI_API_KEY → tu clave de platform.openai.com';
+  if(!ANTHROPIC_API_KEY) return '⚠️ Configura ANTHROPIC_API_KEY en Railway Variables. Ve a railway.app → tu proyecto → Variables → New Variable → ANTHROPIC_API_KEY → tu clave de console.anthropic.com';
   try {
     const prompts = {
       impacto:`Eres el analista de una porra de fútbol entre amigos chilenos. Con estos datos genera un análisis de impacto en español informal y entretenido (máx 300 palabras). Incluye: qué partidos generaron más movimiento, grupos de puntos, caída del día, partido bonus más decisivo. Datos: ${JSON.stringify(context)}`,
       cronica:`Eres el cronista de una porra de fútbol entre amigos chilenos. Escribe una crónica narrativa, emotiva e informal en español (máx 350 palabras). Menciona nombres reales, drama, subidas y caídas. Datos: ${JSON.stringify(context)}`
     };
-    const data = await fetchJSON('https://api.openai.com/v1/chat/completions', {
+    const data = await fetchJSON('https://api.anthropic.com/v1/messages', {
       method:'POST',
-      headers:{'Authorization':`Bearer ${OPENAI_API_KEY}`,'Content-Type':'application/json'},
-      body:JSON.stringify({model:'gpt-4o-mini',max_tokens:600,messages:[{role:'user',content:prompts[type]}]})
+      headers:{'x-api-key':ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01','Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,messages:[{role:'user',content:prompts[type]}]})
     });
-    return data.choices?.[0]?.message?.content || '';
-  } catch(e){ return `Error ChatGPT: ${e.message}`; }
+    return data.content?.[0]?.text || '';
+  } catch(e){ return `Error IA: ${e.message}`; }
 }
 
 // ─── API Routes ────────────────────────────────────────────────────────
@@ -372,7 +371,7 @@ app.get('/api/match/:name',async(req,res)=>{
 
 app.get('/api/debug',async(req,res)=>{
   const {results,matches,liveCount}=await getResults();
-  res.json({today:getTodayStr(),liveCount,footballApiKey:!!FOOTBALL_API_KEY,openaiKey:!!OPENAI_API_KEY,mappedResults:Object.keys(results).length,results,todayMatches:getTodayMatches(matches)});
+  res.json({today:getTodayStr(),liveCount,footballApiKey:!!FOOTBALL_API_KEY,anthropicKey:!!ANTHROPIC_API_KEY,mappedResults:Object.keys(results).length,results,todayMatches:getTodayMatches(matches)});
 });
 
 app.get('/health',(_, res)=>res.json({ok:true,uptime:process.uptime()}));
