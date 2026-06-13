@@ -731,9 +731,8 @@ function renderAwards(awards) {
   // ── Table ────────────────────────────────────────────────────────────
   const firstAward=awards[0];
   const playerNames=Object.keys(firstAward.predictions||{});
-  // Order by standings if available, otherwise use playerNames as-is
   let orderedPlayers;
-  if(standings.length) {
+  if(standings.length){
     orderedPlayers=standings.map(s=>s.name).filter(n=>playerNames.includes(n));
     playerNames.forEach(n=>{ if(!orderedPlayers.includes(n)) orderedPlayers.push(n); });
   } else {
