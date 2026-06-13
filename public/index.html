@@ -436,7 +436,9 @@ function renderNarrative(s,pl){
 
 // ─── JORNADA ──────────────────────────────────────────────────────────
 async function loadJornada(date) {
-  const useDate=date||currentJornadaDate||new Date().toISOString().split('T')[0];
+  // Use Santiago time (UTC-4) for default date, not UTC
+  const santiagToday=new Date(new Date().getTime()-4*3600000).toISOString().slice(0,10);
+  const useDate=date||currentJornadaDate||santiagToday;
   currentJornadaDate=useDate;
   document.getElementById('jornada-table').innerHTML='<div class="loader"><div class="lring"></div></div>';
   document.getElementById('premios-fecha').innerHTML='<div class="loader"><div class="lring"></div></div>';
@@ -457,7 +459,7 @@ async function loadJornada(date) {
 function renderDatePicker(elId, dates, selected, callback) {
   const el=document.getElementById(elId); if(!el) return;
   // Show last 3 + next 3 dates around today
-  const today=new Date().toISOString().split('T')[0];
+  const today=new Date(new Date().getTime()-4*3600000).toISOString().slice(0,10);
   const relevant=dates.filter(d=>d<=today).slice(-4).concat(dates.filter(d=>d>today).slice(0,2));
   let html='<span style="font-size:.75em;color:var(--mu);font-weight:700;margin-right:4px">Fecha:</span>';
   relevant.forEach(d=>{
@@ -560,7 +562,8 @@ async function doLoadAnalysis(type) {
 
 // ─── PRONÓSTICOS ──────────────────────────────────────────────────────
 async function loadPronosticos(date) {
-  const useDate=date||currentJornadaDate||new Date().toISOString().split('T')[0];
+  const santiagToday2=new Date(new Date().getTime()-4*3600000).toISOString().slice(0,10);
+  const useDate=date||currentJornadaDate||santiagToday2;
   currentJornadaDate=useDate;
   document.getElementById('pronosticos-content').innerHTML='<div class="loader"><div class="lring"></div></div>';
   try {
