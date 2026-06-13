@@ -341,7 +341,10 @@ function showPage(name, el) {
   el.classList.add('ac');
   if(name==='jornada'&&!currentJornadaDate) loadJornada();
   if(name==='pronosticos') loadPronosticos();
-  if(name==='premios'&&awardsData.length) renderAwards(awardsData);
+  if(name==='premios'){
+    if(standings.length&&awardsData.length) renderAwards(awardsData);
+    else load().then(()=>{ if(awardsData.length) renderAwards(awardsData); });
+  }
 }
 
 // ─── MAIN LOAD ─────────────────────────────────────────────────────────
