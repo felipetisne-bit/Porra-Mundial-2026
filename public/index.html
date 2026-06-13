@@ -278,10 +278,11 @@ footer{text-align:center;padding:22px 14px;color:var(--mu);font-size:11px;border
 <div class="ctn">
   <div class="sec p">
     <div class="st pu">
-      <span>🏆 Premios del Torneo — Bota & Balón de Oro</span>
+      <span>🏆 Pronósticos de Premios</span>
       <button class="pbtn" onclick="openAdmin()">🔐 Admin</button>
     </div>
-    <div class="award-grid" id="awards"><div class="loader"><div class="lring"></div></div></div>
+    <div id="awards-stats"></div>
+    <div id="awards-table"><div class="loader"><div class="lring"></div></div></div>
   </div>
 </div>
 </div>
@@ -605,22 +606,171 @@ function renderPronosticos(pronosticos) {
 // ─── AWARDS ───────────────────────────────────────────────────────────
 function renderAwards(awards) {
   if(!awards.length) return;
-  let html='<div class="award-grid">';
-  awards.forEach(a=>{
+
+  // ── Cols to show in table ──────────────────────────────────────────
+  const COLS=[
+    {key:'Campeón',      icon:'🥇', short:'Campeón'},
+    {key:'Subcampeón',   icon:'🥈', short:'Subcampeón'},
+    {key:'3º puesto',    icon:'🥉', short:'3º'},
+    {key:'Bota de Oro',  icon:'⚽', short:'Bota Oro'},
+    {key:'Balón de Oro', icon:'🏅', short:'Balón Oro'},
+  ];
+  function findAward(k){ return awards.find(a=>a.label.includes(k))||null; }
+
+  // ── Stats block ───────────────────────────────────────────────────
+  let statsHtml='<div style="margin-bottom:18px">';
+
+  // Row 1: one card per category showing top-3 votes
+  statsHtml+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:12px">';
+  COLS.forEach(c=>{
+    const a=findAward(c.key); if(!a) return;
     const known=!!a.result;
-    html+=`<div class="award-card${known?' known':''}">
-      <div class="award-title">${a.label.split('(')[0].trim()}</div>
-      ${known?`<div class="award-result">${a.result}</div>`:`<div class="award-pending">⏳ Pendiente</div>`}
-      <div style="font-size:.75em;color:var(--mu);margin-bottom:8px">Puntos: ${a.pts}</div>
-      <div class="award-preds">`;
-    const sorted=[...(a.predictions||[])].sort((x,y)=>known?(y.correct?1:0)-(x.correct?1:0):0);
-    sorted.slice(0,12).forEach(p=>{
-      const cls=known?(p.correct?'hit':'miss'):'';
-      html+=`<div class="award-pred-row"><span style="color:var(--mu);font-size:.72em">${p.player.split(' ')[0]}</span><span class="award-pred-val ${cls}">${known&&p.correct?'✅ ':''} ${p.pred}</span></div>`;
-    });
-    html+='</div></div>';
+    const preds=Object.values(a.predictions||{});
+    const total=preds.length;
+    // Count votes
+    const votes={};
+    preds.forEach(p=>{ const v=(p.pred||'').trim(); if(v&&v!=='-') votes[v]=(votes[v]||0)+1; });
+    const sorted=Object.entries(votes).sort((x,y)=>y[1]-x[1]);
+    const unique=sorted.length;
+    const top3=sorted.slice(0,3);
+    statsHtml+=`<div style="background:#f8f0ff;border-radius:10px;padding:12px;border:1px solid #e0c8ff">
+      <div style="font-size:.7em;font-weight:800;color:var(--p);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${c.icon} ${c.short}</div>
+      ${known?`<div style="font-size:.75em;background:var(--v);color:#fff;border-radius:4px;padding:2px 6px;display:inline-block;margin-bottom:4px">✅ ${a.result}</div>`:''}
+      ${top3.map((([v,n],i)=>{
+        const pct=Math.round(n/total*100);
+        const isResult=known&&a.result&&v.toLowerCase().includes(a.result.toLowerCase().slice(0,4));
+        return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
+          <div style="flex:1;font-size:.75em;font-weight:${i===0?700:500};color:${isResult?'var(--v)':'var(--tx)');white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px">${v}</div>
+          <div style="font-size:.7em;color:var(--mu);white-space:nowrap">${n} (${pct}%)</div>
+        </div>
+        <div style="background:#e8d5ff;border-radius:3px;height:4px;margin-bottom:4px"><div style="background:${isResult?'var(--v)':'var(--p)'};height:4px;border-radius:3px;width:${pct}%"></div></div>`;
+      })).join('')}
+      <div style="font-size:.65em;color:var(--mu);margin-top:4px">${unique} opciones distintas</div>
+    </div>`;
   });
-  document.getElementById('awards').innerHTML=html+'</div>';
+  statsHtml+='</div>';
+
+  // Row 2: global stats
+  // Consensus index per category
+  function consensusScore(a){
+    const preds=Object.values(a.predictions||{});
+    if(!preds.length) return 0;
+    const votes={};
+    preds.forEach(p=>{ const v=(p.pred||'').trim(); if(v) votes[v]=(votes[v]||0)+1; });
+    const max=Math.max(...Object.values(votes));
+    return Math.round(max/preds.length*100);
+  }
+  const consensusList=COLS.map(c=>{ const a=findAward(c.key); return a?{label:c.icon+' '+c.short,score:consensusScore(a)}:{label:c.short,score:0}; }).sort((a,b)=>b.score-a.score);
+  const mostConsensus=consensusList[0];
+  const leastConsensus=consensusList[consensusList.length-1];
+
+  // Premio points leaderboard (only honor+player_award pts)
+  const premiosPts={};
+  awards.forEach(a=>{
+    Object.entries(a.predictions||{}).forEach(([name,p])=>{
+      if(p.pts) premiosPts[name]=(premiosPts[name]||0)+p.pts;
+    });
+  });
+  const premiosTop=Object.entries(premiosPts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  // Eliminated check: players whose campeón pick is already out (pts===0 and result known)
+  const campeonAward=findAward('Campeón');
+  let eliminatedCount=0, aliveCount=0;
+  if(campeonAward&&campeonAward.result){
+    Object.values(campeonAward.predictions||{}).forEach(p=>{
+      if(p.correct) aliveCount++; else eliminatedCount++;
+    });
+  } else if(campeonAward){
+    // Tournament ongoing — count predictions still possible
+    aliveCount=Object.values(campeonAward.predictions||{}).length;
+  }
+
+  statsHtml+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:16px">';
+
+  // Consensus card
+  statsHtml+=`<div style="background:#fff;border-radius:10px;padding:12px;border:1px solid #e8e8e8">
+    <div style="font-size:.7em;font-weight:800;color:var(--mu);text-transform:uppercase;margin-bottom:8px">🎯 Consenso del grupo</div>
+    ${consensusList.map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <div style="font-size:.75em;width:90px;color:var(--tx)">${c.label}</div>
+      <div style="flex:1;background:#f0f0f0;border-radius:3px;height:6px"><div style="background:var(--p);height:6px;border-radius:3px;width:${c.score}%"></div></div>
+      <div style="font-size:.7em;color:var(--mu);width:30px;text-align:right">${c.score}%</div>
+    </div>`).join('')}
+    <div style="font-size:.65em;color:var(--mu);margin-top:6px">Mayor acuerdo: <b>${mostConsensus.label}</b> · Mayor dispersión: <b>${leastConsensus.label}</b></div>
+  </div>`;
+
+  // Premios leaderboard card
+  statsHtml+=`<div style="background:#fff;border-radius:10px;padding:12px;border:1px solid #e8e8e8">
+    <div style="font-size:.7em;font-weight:800;color:var(--mu);text-transform:uppercase;margin-bottom:8px">🏆 Rey de Premios</div>
+    ${premiosTop.length?premiosTop.map(([name,pts],i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #f5f5f5">
+      <div style="font-size:.78em;color:var(--tx)">${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${name.split(' ')[0]} ${name.split(' ')[1]||''}</div>
+      <div style="font-size:.78em;font-weight:800;color:var(--p)">${pts} pts</div>
+    </div>`).join(''):'<div style="font-size:.78em;color:var(--mu)">Sin resultados aún</div>'}
+    <div style="font-size:.65em;color:var(--mu);margin-top:6px">Puntos acumulados solo en premios</div>
+  </div>`;
+
+  // Alive/eliminated card
+  const campeonKnown=campeonAward&&!!campeonAward.result;
+  statsHtml+=`<div style="background:#fff;border-radius:10px;padding:12px;border:1px solid #e8e8e8">
+    <div style="font-size:.7em;font-weight:800;color:var(--mu);text-transform:uppercase;margin-bottom:8px">💀 Estado del Campeón</div>
+    ${campeonKnown
+      ? `<div style="display:flex;gap:12px;margin-bottom:8px">
+          <div style="text-align:center"><div style="font-size:1.4em;font-weight:900;color:var(--v)">${aliveCount}</div><div style="font-size:.65em;color:var(--mu)">acertaron</div></div>
+          <div style="text-align:center"><div style="font-size:1.4em;font-weight:900;color:var(--r)">${eliminatedCount}</div><div style="font-size:.65em;color:var(--mu)">fallaron</div></div>
+        </div>`
+      : `<div style="font-size:.78em;color:var(--mu);margin-bottom:8px">Torneo en curso — ${aliveCount} jugadores con campeón vivo</div>`}
+    <div style="font-size:.65em;color:var(--mu)">Se actualiza con resultados reales</div>
+  </div>`;
+
+  statsHtml+='</div></div>';
+  document.getElementById('awards-stats').innerHTML=statsHtml;
+
+  // ── Table ────────────────────────────────────────────────────────────
+  const firstAward=awards[0];
+  const playerNames=Object.keys(firstAward.predictions||{});
+  const orderedPlayers=standings.length
+    ? standings.map(s=>s.name).filter(n=>playerNames.includes(n))
+    : playerNames;
+  playerNames.forEach(n=>{ if(!orderedPlayers.includes(n)) orderedPlayers.push(n); });
+
+  let html=`<div style="overflow-x:auto">
+  <table style="width:100%;border-collapse:collapse;font-size:.8em">
+    <thead>
+      <tr style="background:rgba(123,45,139,.1)">
+        <th style="padding:8px 6px;text-align:center;position:sticky;left:0;background:#f3e8ff;min-width:28px">#</th>
+        <th style="padding:8px 6px;text-align:left;position:sticky;left:28px;background:#f3e8ff;min-width:120px">Jugador</th>
+        <th style="padding:8px;text-align:center;font-weight:800;min-width:45px">Pts</th>`;
+  COLS.forEach(c=>{
+    const a=findAward(c.key);
+    const known=a&&!!a.result;
+    html+=`<th style="padding:8px 6px;text-align:center;min-width:88px">${c.icon} ${c.short}${known?`<br><span style='font-size:.85em;color:var(--v);font-weight:900'>${a.result}</span>`:`<br><span style='font-size:.7em;color:var(--mu);font-weight:400'>⏳</span>`}</th>`;
+  });
+  html+='</tr></thead><tbody>';
+
+  orderedPlayers.forEach((name,i)=>{
+    const pos=standings.findIndex(s=>s.name===name);
+    const pts=pos>=0?standings[pos].total:'-';
+    const rank=pos>=0?pos+1:'-';
+    const rowBg=i%2===0?'#fff':'#faf5ff';
+    html+=`<tr style="background:${rowBg};border-bottom:1px solid #f0e8ff">
+      <td style="padding:6px;font-weight:700;color:var(--mu);text-align:center;position:sticky;left:0;background:${rowBg}">${rank}</td>
+      <td style="padding:6px;font-weight:600;position:sticky;left:28px;background:${rowBg};white-space:nowrap">${name.split(' ')[0]} ${(name.split(' ')[1]||'').charAt(0)}.</td>
+      <td style="padding:6px;text-align:center;font-weight:800;color:var(--p)">${pts}</td>`;
+    COLS.forEach(c=>{
+      const a=findAward(c.key);
+      const pred=a?.predictions?.[name];
+      const known=a&&!!a.result;
+      let cell=pred?pred.pred:'-';
+      let style='padding:6px;text-align:center;font-size:.78em;';
+      if(known&&pred){
+        style+=pred.correct?'color:var(--v);font-weight:800;':'color:var(--r);opacity:.7;text-decoration:line-through;';
+        if(pred.correct) cell='✅ '+cell;
+      }
+      html+=`<td style="${style}">${cell}</td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
+  document.getElementById('awards-table').innerHTML=html;
 }
 
 // ─── ADMIN ────────────────────────────────────────────────────────────
