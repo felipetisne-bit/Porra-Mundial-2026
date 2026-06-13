@@ -294,13 +294,14 @@ app.get('/api/live', async(req,res)=>{
 app.get('/api/jornada', async(req,res)=>{
   try {
     const dateStr=req.query.date||getTodayDates();
+    const primaryDate=Array.isArray(dateStr)?dateStr[0]:dateStr;
     const {results}=await getResults();
     const standings=recalcStandings(PORRA,results,awardsState,honorsState);
     const jornadaMatches=getJornadaMatches(dateStr,results);
     const summary=buildJornadaSummary(jornadaMatches,standings);
     const premios=buildPremiosFecha(jornadaMatches);
     const allDates=[...new Set([...PORRA.group_score,...PORRA.ko_score].map(m=>m.date).filter(Boolean))].sort();
-    res.json({ok:true,date:dateStr,jornadaMatches,summary,premios,availableDates:allDates,lastUpdated:new Date().toISOString()});
+    res.json({ok:true,date:primaryDate,jornadaMatches,summary,premios,availableDates:allDates,lastUpdated:new Date().toISOString()});
   } catch(e){res.status(500).json({ok:false,error:e.message});}
 });
 
