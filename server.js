@@ -35,7 +35,10 @@ async function refreshESPN() {
   if(now - espnCache.ts < 45000) return espnCache;
   const results={}, todayMatches=[];
   try {
-    const data = await fetchESPN('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=50');
+    // Fetch last 2 days + today to catch all recent results
+    const todayD=new Date();
+    const fetchDates=[-2,-1,0,1].map(d=>{const dt=new Date(todayD);dt.setDate(dt.getDate()+d);return dt.toLocaleDateString('en-CA',{timeZone:'America/Santiago'}).replace(/-/g,'');});
+    const data = await fetchESPN(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=100\const data = await fetchESPN('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=50');dates=${fetchDates.join(',')}`);
     for(const event of (data.events||[])) {
       const comp=event.competitions?.[0]; if(!comp) continue;
       const home=comp.competitors?.find(c=>c.homeAway==='home');
@@ -51,7 +54,7 @@ async function refreshESPN() {
         homeScore:hScore, awayScore:aScore,
         status:isFT?'FT':isLive?'LIVE':'NS',
         clock:isLive?event.status?.displayClock:null,
-        date:eventDate.toISOString().split('T')[0],
+        date:eventDate.toLocaleDateString('en-CA',{timeZone:'America/Santiago'}),
         time:eventDate.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit',timeZone:'America/Santiago'}),
         resultFmt:(!isPend&&hScore!=null)?toResultFmt(hScore,aScore):null,
       };
@@ -68,7 +71,7 @@ async function refreshESPN() {
 }
 
 // ─── Helper: get today's date string ─────────────────────────────────
-function getTodayStr() { return new Date().toISOString().split('T')[0]; }
+function getTodayStr() { return new Date().toLocaleDateString('en-CA',{timeZone:'America/Santiago'}); }
 
 // ─── Helper: get jornada matches (by date) ────────────────────────────
 function getJornadaMatches(dateStr, espnResults) {
