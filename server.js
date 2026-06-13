@@ -36,11 +36,26 @@ async function fetchJSON(url, opts={}) {
   return res.json();
 }
 
-// FIX #3: Santiago timezone date
+// FIX #3: Santiago timezone date (Chile = UTC-4 in winter Jun-Aug, UTC-3 in summer)
 function getSantiagoDate(d) {
-  return (d ? new Date(d) : new Date()).toLocaleDateString('en-CA',{timeZone:'America/Santiago'});
+  // Try Intl first; fall back to explicit UTC-4 offset (Chilean winter)
+  try {
+    const dt = d ? new Date(d) : new Date();
+    const str = dt.toLocaleDateString('en-CA', {timeZone:'America/Santiago'});
+    if (str && str.match(/^\d{4}-\d{2}-\d{2}$/)) return str;
+  } catch(e) {}
+  // Fallback: explicit UTC-4 (CLT, Chilean winter)
+  const ms = (d ? new Date(d) : new Date()).getTime() - 4 * 3600000;
+  return new Date(ms).toISOString().slice(0,10);
 }
 function getTodayStr() { return getSantiagoDate(); }
+// Returns [today, yesterday] in Santiago time to catch UTC-7 stadium games
+function getTodayDates() {
+  const today = getTodayStr();
+  const ms = new Date().getTime() - 4*3600000 - 86400000;
+  const yesterday = new Date(ms).toISOString().slice(0,10);
+  return [today, yesterday];
+}
 
 // ─── Cache ─────────────────────────────────────────────────────────────
 let wcCache   = { results:{}, matches:[], ts:0 };
@@ -167,12 +182,17 @@ async function getResults() {
 // ─── Helpers ────────────────────────────────────────────────────────────
 function getTodayMatches(allMatches) {
   const today = getTodayStr();
-  return allMatches.filter(m=>m.date===today);
+  // Also include yesterday (porra.json stores local stadium date; a game at 18:00 UTC-7
+  // = 01:00 next day Santiago, so its date field is one day behind Santiago's date)
+  const yesterday = new Date(new Date().getTime() - 4*3600000 - 86400000).toISOString().slice(0,10);
+  return allMatches.filter(m=>m.date===today || m.date===yesterday);
 }
 
 function getJornadaMatches(dateStr, results) {
   const allScore = [...PORRA.group_score,...PORRA.ko_score];
-  return allScore.filter(m=>m.date===dateStr).map(m=>{
+  // dateStr can be string or array (to handle UTC-7 games spanning two Santiago dates)
+  const dates = Array.isArray(dateStr) ? dateStr : [dateStr];
+  return allScore.filter(m=>dates.includes(m.date)).map(m=>{
     const r=results[m.name];
     let result=m.result;
     if(r&&r.homeScore!=null) result=toResultFmt(r.homeScore,r.awayScore);
@@ -275,7 +295,7 @@ app.get('/api/live', async(req,res)=>{
 
 app.get('/api/jornada', async(req,res)=>{
   try {
-    const dateStr=req.query.date||getTodayStr();
+    const dateStr=req.query.date||getTodayDates();
     const {results}=await getResults();
     const standings=recalcStandings(PORRA,results,awardsState,honorsState);
     const jornadaMatches=getJornadaMatches(dateStr,results);
@@ -290,7 +310,7 @@ app.get('/api/analysis/:type', async(req,res)=>{
   try {
     const {type}=req.params;
     if(!['impacto','cronica'].includes(type)) return res.status(400).json({ok:false});
-    const dateStr=req.query.date||getTodayStr();
+    const dateStr=req.query.date||getTodayDates();
     const {results}=await getResults();
     const standings=recalcStandings(PORRA,results,awardsState,honorsState);
     const jornadaMatches=getJornadaMatches(dateStr,results);
@@ -304,7 +324,7 @@ app.get('/api/analysis/:type', async(req,res)=>{
 
 app.get('/api/pronosticos', async(req,res)=>{
   try {
-    const dateStr=req.query.date||getTodayStr();
+    const dateStr=req.query.date||getTodayDates();
     const {results}=await getResults();
     const jornadaMatches=getJornadaMatches(dateStr,results);
     const pronosticos=jornadaMatches.map(m=>({
