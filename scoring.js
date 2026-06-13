@@ -1,4 +1,4 @@
-// =====================================================================
+=====================================================================
 // MOTOR DE PUNTUACIÓN COMPLETO — Porra Mundial 2026
 // =====================================================================
 // Tipos de predicción:
@@ -239,38 +239,76 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
 }
 
 // ─── ESPN team name normalizer ────────────────────────────────────────
+// Maps normalized Spanish team names → normalized English ESPN names
 const ESP_TO_EN = {
-  'méxico':'mexico','corea del sur':'south korea','república checa':'czech republic',
-  'canadá':'canada','bosnia y herzegovina':'bosnia & herzegovina','catar':'qatar',
-  'suiza':'switzerland','brasil':'brazil','marruecos':'morocco','haití':'haiti',
-  'escocia':'scotland','estados unidos':'usa','australia':'australia','turquía':'turkey',
-  'alemania':'germany','curazao':'curaçao','costa de marfil':"côte d'ivoire",
-  'países bajos':'netherlands','japón':'japan','túnez':'tunisia','bélgica':'belgium',
-  'egipto':'egypt','irán':'iran','nueva zelanda':'new zealand','españa':'spain',
-  'cabo verde':'cape verde','arabia saudita':'saudi arabia','uruguay':'uruguay',
-  'francia':'france','senegal':'senegal','irak':'iraq','noruega':'norway',
-  'argentina':'argentina','argelia':'algeria','austria':'austria','jordania':'jordan',
-  'portugal':'portugal','rd congo':'dr congo','uzbekistán':'uzbekistan',
-  'colombia':'colombia','inglaterra':'england','croacia':'croatia',
-  'ghana':'ghana','panamá':'panama','sudáfrica':'south africa','suecia':'sweden',
-  'paraguay':'paraguay','ecuador':'ecuador',
+  'mexico':'mexico', 'coreadelsur':'southkorea', 'republicacheca':'czechrepublic',
+  'canada':'canada', 'bosniayherzegovina':'bosniaherzegovina',
+  'catar':'qatar', 'suiza':'switzerland', 'brasil':'brazil', 'marruecos':'morocco',
+  'haiti':'haiti', 'escocia':'scotland', 'estadosunidos':'unitedstates',
+  'australia':'australia', 'turquia':'turkey', 'alemania':'germany',
+  'curazao':'curacao', 'costademarfil':'ivorycoast',
+  'paisesbajos':'netherlands', 'japon':'japan', 'tunez':'tunisia', 'belgica':'belgium',
+  'egipto':'egypt', 'iran':'iran', 'nuevazelanda':'newzealand', 'espana':'spain',
+  'caboverde':'capeverde', 'arabiasaudita':'saudiarabia', 'uruguay':'uruguay',
+  'francia':'france', 'senegal':'senegal', 'irak':'iraq', 'noruega':'norway',
+  'argentina':'argentina', 'argelia':'algeria', 'austria':'austria', 'jordania':'jordan',
+  'portugal':'portugal', 'rdcongo':'drcongo', 'uzbekistan':'uzbekistan',
+  'colombia':'colombia', 'inglaterra':'england', 'croacia':'croatia',
+  'ghana':'ghana', 'panama':'panama', 'sudafrica':'southafrica', 'suecia':'sweden',
+  'paraguay':'paraguay', 'ecuador':'ecuador',
+};
+
+// Also maps English ESPN names → Spanish Excel names (for reverse lookup)
+const EN_TO_ESP_MATCH = {
+  'southafrica': 'Sudáfrica', 'southkorea': 'Corea del Sur',
+  'czechrepublic': 'República Checa', 'unitedstates': 'Estados Unidos',
+  'bosniaherzegovina': 'Bosnia y Herzegovina',
+  'ivorycoast': 'Costa de Marfil', 'netherlands': 'Países Bajos',
+  'newzealand': 'Nueva Zelanda', 'capeverde': 'Cabo Verde',
+  'saudiarabia': 'Arabia Saudita', 'drcongo': 'RD Congo',
 };
 
 function matchESPNTeam(espnName, excelName) {
   const en = norm(espnName), ex = norm(excelName);
   if (en === ex || en.includes(ex) || ex.includes(en)) return true;
-  const translated = norm(ESP_TO_EN[excelName.toLowerCase()] || '');
-  if (translated && (en === translated || en.includes(translated))) return true;
+  // Try direct Spanish→English translation
+  const translated = norm(ESP_TO_EN[excelName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')] || '');
+  if (translated && (en === translated || en.includes(translated) || translated.includes(en))) return true;
+  // Try each word of the ESPN name against the translated name
+  const enWords = en.split('').filter(c => c !== ' ');
+  const exWords = ex.split('').filter(c => c !== ' ');
+  // Partial: if first 5+ chars match
+  if (en.length >= 4 && ex.length >= 4) {
+    if (en.slice(0,5) === ex.slice(0,5)) return true;
+    if (translated.length >= 4 && en.slice(0,5) === translated.slice(0,5)) return true;
+  }
   return false;
 }
 
 function findExcelMatchForESPN(homeESPN, awayESPN, matchList) {
+  const hEn = norm(homeESPN);
+  const aEn = norm(awayESPN);
+
   for (const m of matchList) {
     const parts = m.name.split('-');
     if (parts.length < 2) continue;
     const mHome = parts[0].trim();
     const mAway = parts.slice(1).join('-').trim();
-    if (matchESPNTeam(homeESPN, mHome) && matchESPNTeam(awayESPN, mAway)) return m.name;
+    const mHomeN = norm(mHome);
+    const mAwayN = norm(mAway);
+
+    // Get English translation of Spanish name
+    const mHomeTr = ESP_TO_EN[mHomeN] || mHomeN;
+    const mAwayTr = ESP_TO_EN[mAwayN] || mAwayN;
+
+    const homeOk = hEn === mHomeN || hEn === mHomeTr ||
+                   hEn.includes(mHomeTr) || mHomeTr.includes(hEn) ||
+                   hEn.includes(mHomeN) || mHomeN.includes(hEn);
+    const awayOk = aEn === mAwayN || aEn === mAwayTr ||
+                   aEn.includes(mAwayTr) || mAwayTr.includes(aEn) ||
+                   aEn.includes(mAwayN) || mAwayN.includes(aEn);
+
+    if (homeOk && awayOk) return m.name;
   }
   return null;
 }
