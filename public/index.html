@@ -617,27 +617,10 @@ function renderAwards(awards) {
     {key:'Balón de Oro', icon:'🏅', short:'Balón Oro'},
   ];
   function findAward(k){ return awards.find(a=>a.label.includes(k))||null; }
-
-  // Normalize player names for grouping in stats (doesn't affect real predictions)
-  const PLAYER_NORM={
-    'kylian mbappe':'Mbappé','kylian mbappé':'Mbappé','mbappe':'Mbappé','mbappé':'Mbappé',
-    'kilian mbappe':'Mbappé','kilian mbappé':'Mbappé',
-    'lamine yamal':'Lamine Yamal','lamin jamal':'Lamine Yamal','yamal':'Lamine Yamal',
-    'cristiano ronaldo':'Cristiano Ronaldo','cristiano':'Cristiano Ronaldo','cr7':'Cristiano Ronaldo',
-    'vinicius':'Vinicius','vinicius jr':'Vinicius','vinicius junior':'Vinicius','vini':'Vinicius',
-    'lionel messi':'Messi','messi':'Messi',
-    'lautaro martinez':'Lautaro Martínez','lautaro':'Lautaro Martínez',
-    'julian alvarez':'Julián Álvarez','julián álvarez':'Julián Álvarez',
-    'raphinha':'Raphinha','raphina':'Raphinha',
-    'dembele':'Dembélé','dembélé':'Dembélé',
-    'bruno fernandes':'Bruno Fernandes','bruno fernandez':'Bruno Fernandes',
-    'olise':'Olise','olisse':'Olise',
-    'virgil van dijk':'Van Dijk','van dijk':'Van Dijk',
-    'vitinha':'Vitinha','vitina':'Vitinha',
-    'pedri':'Pedri','ferran torres':'Ferran Torres',
-    'harry kane':'Harry Kane','depay':'Depay','de jong':'De Jong',
-  };
+  const PLAYER_NORM={'kylian mbappe':'Mbappé','kylian mbappé':'Mbappé','mbappe':'Mbappé','mbappé':'Mbappé','kilian mbappe':'Mbappé','kilian mbappé':'Mbappé','lamine yamal':'Lamine Yamal','lamin jamal':'Lamine Yamal','yamal':'Lamine Yamal','cristiano ronaldo':'Cristiano Ronaldo','cristiano':'Cristiano Ronaldo','cr7':'Cristiano Ronaldo','vinicius':'Vinicius','vinicius jr':'Vinicius','vinicius junior':'Vinicius','vini':'Vinicius','lionel messi':'Messi','messi':'Messi','julian alvarez':'Julián Álvarez','julián álvarez':'Julián Álvarez','raphinha':'Raphinha','raphina':'Raphinha','dembele':'Dembélé','dembélé':'Dembélé','bruno fernandes':'Bruno Fernandes','bruno fernandez':'Bruno Fernandes','olise':'Olise','olisse':'Olise','virgil van dijk':'Van Dijk','van dijk':'Van Dijk','vitinha':'Vitinha','vitina':'Vitinha','lautaro martinez':'Lautaro Martínez','harry kane':'Harry Kane','ferran torres':'Ferran Torres','pedri':'Pedri','depay':'Depay','de jong':'De Jong'};
   function normPlayer(s){ return PLAYER_NORM[(s||'').toLowerCase().trim()]||(s||'').trim(); }
+
+
 
   // ── Stats block ───────────────────────────────────────────────────
   let statsHtml='<div style="margin-bottom:18px">';
