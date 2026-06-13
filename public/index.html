@@ -534,14 +534,9 @@ function renderPremiosFecha(premios) {
 
 // ─── ANALISIS / CRONICA ───────────────────────────────────────────────
 async function loadAnalysis(type) {
-  if(!adminToken) {
-    pendingAnalysis=type;
-    openAIModal();
-    return;
-  }
+  if(!adminToken) { pendingAnalysis=type; openAIModal(); return; }
   await doLoadAnalysis(type);
 }
-
 async function doLoadAnalysis(type) {
   const elId=type==='cronica'?'cronica-content':'analisis-content';
   document.getElementById(elId).innerHTML='<div class="loader"><div class="lring"></div><br>Generando con IA...</div>';
