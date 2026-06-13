@@ -351,6 +351,7 @@ async function load(manual=false) {
     const r=await fetch('/api/live'); if(!r.ok) throw new Error('HTTP '+r.status);
     const d=await r.json(); if(!d.ok) throw new Error(d.error);
     standings=d.standings||[]; todayMatches=d.todayMatches||[]; awardsData=d.awardsDisplay||[];
+    if(document.getElementById('page-premios').classList.contains('ac')&&awardsData.length) renderAwards(awardsData);
     renderHero(d.stats); renderMatches(todayMatches); renderStandings(standings);
     renderStats(d.stats,standings); renderNarrative(d.stats,standings);
     const ts=new Date(d.lastUpdated);
@@ -632,11 +633,11 @@ function renderAwards(awards) {
     preds.forEach(p=>{ const v=(p.pred||'').trim(); if(v&&v!=='-') votes[v]=(votes[v]||0)+1; });
     const sorted=Object.entries(votes).sort((x,y)=>y[1]-x[1]);
     const unique=sorted.length;
-    const top3=sorted.slice(0,3);
+    const top5=sorted.slice(0,5);
     statsHtml+=`<div style="background:#f8f0ff;border-radius:10px;padding:12px;border:1px solid #e0c8ff">
       <div style="font-size:.7em;font-weight:800;color:var(--p);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${c.icon} ${c.short}</div>
       ${known?`<div style="font-size:.75em;background:var(--v);color:#fff;border-radius:4px;padding:2px 6px;display:inline-block;margin-bottom:4px">✅ ${a.result}</div>`:''}
-      ${top3.map(([v,n],i)=>{
+      ${top5.map(([v,n],i)=>{
         const pct=Math.round(n/total*100);
         const isResult=known&&a.result&&v.toLowerCase().includes(a.result.toLowerCase().slice(0,4));
         const clr=isResult?'var(--v)':'var(--tx)';
@@ -730,10 +731,14 @@ function renderAwards(awards) {
   // ── Table ────────────────────────────────────────────────────────────
   const firstAward=awards[0];
   const playerNames=Object.keys(firstAward.predictions||{});
-  const orderedPlayers=standings.length
-    ? standings.map(s=>s.name).filter(n=>playerNames.includes(n))
-    : playerNames;
-  playerNames.forEach(n=>{ if(!orderedPlayers.includes(n)) orderedPlayers.push(n); });
+  // Order by standings if available, otherwise use playerNames as-is
+  let orderedPlayers;
+  if(standings.length) {
+    orderedPlayers=standings.map(s=>s.name).filter(n=>playerNames.includes(n));
+    playerNames.forEach(n=>{ if(!orderedPlayers.includes(n)) orderedPlayers.push(n); });
+  } else {
+    orderedPlayers=[...playerNames];
+  }
 
   let html=`<div style="overflow-x:auto">
   <table style="width:100%;border-collapse:collapse;font-size:.8em">
