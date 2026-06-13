@@ -436,7 +436,6 @@ function renderNarrative(s,pl){
 
 // ─── JORNADA ──────────────────────────────────────────────────────────
 async function loadJornada(date) {
-  // Use Santiago time (UTC-4) for default date, not UTC
   const santiagToday=new Date(new Date().getTime()-4*3600000).toISOString().slice(0,10);
   const useDate=date||currentJornadaDate||santiagToday;
   currentJornadaDate=useDate;
@@ -562,8 +561,7 @@ async function doLoadAnalysis(type) {
 
 // ─── PRONÓSTICOS ──────────────────────────────────────────────────────
 async function loadPronosticos(date) {
-  const santiagToday2=new Date(new Date().getTime()-4*3600000).toISOString().slice(0,10);
-  const useDate=date||currentJornadaDate||santiagToday2;
+  const useDate=date||currentJornadaDate||new Date().toISOString().split('T')[0];
   currentJornadaDate=useDate;
   document.getElementById('pronosticos-content').innerHTML='<div class="loader"><div class="lring"></div></div>';
   try {
