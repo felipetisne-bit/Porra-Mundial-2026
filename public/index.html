@@ -794,7 +794,8 @@ function renderAwards(awards) {
 
   // ── Table ────────────────────────────────────────────────────────────
   const firstAward=awards[0];
-  const playerNames=Object.keys(firstAward.predictions||{});
+  // predictions is an array [{player,pred,correct}]
+  const playerNames=(firstAward.predictions||[]).map(p=>p.player);
   let orderedPlayers;
   if(standings.length){
     orderedPlayers=standings.map(s=>s.name).filter(n=>playerNames.includes(n));
@@ -828,11 +829,11 @@ function renderAwards(awards) {
       <td style="padding:6px;text-align:center;font-weight:800;color:var(--p)">${pts}</td>`;
     COLS.forEach(c=>{
       const a=findAward(c.key);
-      const pred=a?.predictions?.[name];
+      const pred=a?.predictions?.find(p=>p.player===name);
       const known=a&&!!a.result;
       let cell=pred?pred.pred:'-';
       let style='padding:6px;text-align:center;font-size:.78em;';
-      if(known&&pred){
+      if(known&&pred&&pred.correct!==null){
         style+=pred.correct?'color:var(--v);font-weight:800;':'color:var(--r);opacity:.7;text-decoration:line-through;';
         if(pred.correct) cell='✅ '+cell;
       }
