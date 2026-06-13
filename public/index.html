@@ -448,10 +448,12 @@ async function loadJornada(date) {
     const r=await fetch('/api/jornada?date='+useDate);
     const d=await r.json();
     if(!d.ok) throw new Error(d.error);
+    const returnedDate=d.date||useDate;
+    currentJornadaDate=returnedDate;
     availableDates=d.availableDates||[];
-    renderDatePicker('date-picker', availableDates, useDate, loadJornada);
-    renderDatePicker('pron-date-picker', availableDates, useDate, loadPronosticos);
-    renderJornadaTable(d.summary, d.jornadaMatches, useDate);
+    renderDatePicker('date-picker', availableDates, returnedDate, loadJornada);
+    renderDatePicker('pron-date-picker', availableDates, returnedDate, loadPronosticos);
+    renderJornadaTable(d.summary, d.jornadaMatches, returnedDate);
     renderPremiosFecha(d.premios);
   } catch(e){
     document.getElementById('jornada-table').innerHTML=`<p style="color:var(--r)">Error: ${e.message}</p>`;
