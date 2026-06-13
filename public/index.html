@@ -329,7 +329,7 @@ footer{text-align:center;padding:22px 14px;color:var(--mu);font-size:11px;border
 <script>
 // ─── STATE ────────────────────────────────────────────────────────────
 let standings=[], todayMatches=[], awardsData=[];
-let currentTab='all', currentJornadaDate='', adminToken='';
+let currentTab='all', currentJornadaDate='', adminToken='', pendingAnalysis=null;
 let availableDates=[];
 
 // ─── PAGE NAV ──────────────────────────────────────────────────────────
@@ -534,10 +534,20 @@ function renderPremiosFecha(premios) {
 
 // ─── ANALISIS / CRONICA ───────────────────────────────────────────────
 async function loadAnalysis(type) {
+  if(!adminToken) {
+    pendingAnalysis=type;
+    openAIModal();
+    return;
+  }
+  await doLoadAnalysis(type);
+}
+
+async function doLoadAnalysis(type) {
   const elId=type==='cronica'?'cronica-content':'analisis-content';
   document.getElementById(elId).innerHTML='<div class="loader"><div class="lring"></div><br>Generando con IA...</div>';
   try {
-    const r=await fetch(`/api/analysis/${type}?date=${currentJornadaDate||new Date().toISOString().split('T')[0]}`);
+    const r=await fetch(`/api/analysis/${type}?date=${currentJornadaDate||new Date().toISOString().split('T')[0]}`,{headers:{'x-admin-token':adminToken}});
+    if(r.status===401){adminToken='';throw new Error('Clave incorrecta');}
     const d=await r.json();
     if(!d.ok||!d.text) throw new Error(d.error||'Sin respuesta');
     if(type==='cronica'){
@@ -547,7 +557,7 @@ async function loadAnalysis(type) {
       document.getElementById('analisis-content').innerHTML=`<div style="line-height:1.8;white-space:pre-wrap;font-size:.88em">${d.text}</div>`;
     }
   } catch(e){
-    document.getElementById(elId).innerHTML=`<p style="color:var(--r)">⚠️ ${e.message}. Asegúrate de configurar ANTHROPIC_API_KEY en Railway Variables.</p>`;
+    document.getElementById(elId).innerHTML=`<p style="color:var(--r)">⚠️ ${e.message}.</p>`;
   }
 }
 
@@ -619,6 +629,15 @@ function renderAwards(awards) {
 }
 
 // ─── ADMIN ────────────────────────────────────────────────────────────
+function openAIModal(){document.getElementById('ai-modal-ov').classList.add('open');document.getElementById('ai-modal-pwd').value='';document.getElementById('ai-modal-err').textContent='';}
+function closeAIModal(){document.getElementById('ai-modal-ov').classList.remove('open');pendingAnalysis=null;}
+async function submitAIModal(){
+  const pwd=document.getElementById('ai-modal-pwd').value;
+  const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pwd})});
+  const d=await r.json();
+  if(d.ok){adminToken=d.token;closeAIModal();if(pendingAnalysis){const t=pendingAnalysis;pendingAnalysis=null;doLoadAnalysis(t);}}
+  else{document.getElementById('ai-modal-err').textContent='Clave incorrecta';}
+}
 function openAdmin(){document.getElementById('admin-ov').classList.add('open');document.getElementById('admin-step1').style.display='';document.getElementById('admin-step2').style.display='none';document.getElementById('admin-pwd').value='';}
 function closeAdmin(){document.getElementById('admin-ov').classList.remove('open');}
 async function checkAdmin(){
@@ -674,5 +693,17 @@ function closeOv(e){if(e.target===document.getElementById('ov'))closeOverlay();}
 load();
 setInterval(load,45000);
 </script>
+<div class="admin-overlay" id="ai-modal-ov">
+  <div class="admin-box" style="max-width:360px;text-align:center">
+    <h3 style="margin-bottom:16px">🔐 Acceso restringido</h3>
+    <p style="font-size:.85em;color:#666;margin-bottom:16px">Ingresa la clave para generar contenido con IA</p>
+    <input class="admin-input" type="password" id="ai-modal-pwd" placeholder="Clave" onkeydown="if(event.key==='Enter')submitAIModal()">
+    <div id="ai-modal-err" style="color:var(--r);font-size:.8em;min-height:18px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button class="rbtn" onclick="submitAIModal()">Entrar</button>
+      <button class="rbtn" style="background:#eee;color:#333" onclick="closeAIModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
