@@ -595,7 +595,7 @@ function renderPronosticos(pronosticos) {
     m.players.forEach(p=>{
       const cls=p.pts===m.maxPts&&m.maxPts>0?'exact':p.pts>0?'sign':p.pts===0&&hasResult?'zero':'';
       html+=`<div class="pron-cell ${cls}">
-        <span class="pron-name">${p.name.split(' ')[0]}</span>
+        <span class="pron-name">${p.name}</span>
         <span class="pron-pred">${p.pred}</span>
         ${hasResult?`<span class="pron-pts${p.pts===0?' z':''}">${p.pts}</span>`:''}
       </div>`;
