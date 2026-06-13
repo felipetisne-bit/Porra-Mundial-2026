@@ -244,7 +244,7 @@ const ESP_TO_EN = {
   'mexico':'mexico', 'coreadelsur':'southkorea', 'republicacheca':'czechrepublic',
   'canada':'canada', 'bosniayherzegovina':'bosniaherzegovina',
   'catar':'qatar', 'suiza':'switzerland', 'brasil':'brazil', 'marruecos':'morocco',
-  'haiti':'haiti', 'escocia':'scotland', 'estadosunidos':'unitedstates',
+  'haiti':'haiti', 'escocia':'scotland', 'estadosunidos':'unitedstates','unitedstates':'unitedstates',
   'australia':'australia', 'turquia':'turkey', 'alemania':'germany',
   'curazao':'curacao', 'costademarfil':'ivorycoast',
   'paisesbajos':'netherlands', 'japon':'japan', 'tunez':'tunisia', 'belgica':'belgium',
@@ -319,3 +319,4 @@ module.exports = {
   toResultFmt, parseKOPred, norm, namesMatch,
   recalcStandings, findExcelMatchForESPN, matchESPNTeam
 };
+ 
