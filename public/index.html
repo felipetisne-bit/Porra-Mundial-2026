@@ -821,7 +821,7 @@ function renderAwards(awards) {
     const rowBg=i%2===0?'#fff':'#faf5ff';
     html+=`<tr style="background:${rowBg};border-bottom:1px solid #f0e8ff">
       <td style="padding:6px;font-weight:700;color:var(--mu);text-align:center;position:sticky;left:0;background:${rowBg}">${rank}</td>
-      <td style="padding:6px;font-weight:600;position:sticky;left:28px;background:${rowBg};white-space:nowrap">${name.split(' ')[0]} ${(name.split(' ')[1]||'').charAt(0)}.</td>
+      <td style="padding:6px;font-weight:600;position:sticky;left:28px;background:${rowBg};white-space:nowrap">${name}</td>
       <td style="padding:6px;text-align:center;font-weight:800;color:var(--p)">${pts}</td>`;
     COLS.forEach(c=>{
       const a=findAward(c.key);
