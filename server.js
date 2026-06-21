@@ -169,7 +169,7 @@ async function refreshLive() {
 // ─── Merged results ────────────────────────────────────────────────────
 async function getResults() {
   const [wc, live] = await Promise.all([refreshWC(), refreshLive()]);
-  const results = {...wc.results, ...live.liveResults};
+  const results = {...wc.results};for(const [k,v] of Object.entries(live.liveResults)){if(v.status==='LIVE'||!results[k])results[k]=v;}
   const allMatches = wc.matches.map(m => {
     const liveM = live.liveMatches.find(l=>l.excelName===m.excelName);
     if(liveM) return {...m,...liveM};
