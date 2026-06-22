@@ -144,7 +144,8 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
   for (const m of data.group_score) {
     const espn = espnResults[m.name];
     let result = m.result;
-    if (espn && espn.status === 'FT' && espn.homeScore != null) {
+    // Use live score for provisional points (LIVE matches)
+    if (espn && (espn.status === 'FT' || espn.status === 'LIVE') && espn.homeScore != null) {
       result = toResultFmt(espn.homeScore, espn.awayScore);
     }
     if (!result || result === '-') continue;
