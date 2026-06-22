@@ -166,10 +166,129 @@ async function refreshLive() {
   return liveCache;
 }
 
+// ─── Group Standings Calculator ────────────────────────────────────────
+function calcGroupStandings(matches) {
+  // Build standings for each group from match results
+  const groups = {};
+  for (const m of matches) {
+    if (!m.group || !m.group.startsWith('Group')) continue;
+    const score = m.score && m.score.ft;
+    if (!score) continue; // match not played yet
+    const g = m.group.replace('Group ','');
+    if (!groups[g]) groups[g] = {};
+    const t1 = m.team1, t2 = m.team2;
+    const [g1, g2] = score;
+    for (const t of [t1, t2]) {
+      if (!groups[g][t]) groups[g][t] = {pts:0, gf:0, ga:0, gd:0, played:0};
+    }
+    groups[g][t1].played++; groups[g][t2].played++;
+    groups[g][t1].gf += g1; groups[g][t1].ga += g2; groups[g][t1].gd += g1-g2;
+    groups[g][t2].gf += g2; groups[g][t2].ga += g1; groups[g][t2].gd += g2-g1;
+    if (g1 > g2) { groups[g][t1].pts += 3; }
+    else if (g1 < g2) { groups[g][t2].pts += 3; }
+    else { groups[g][t1].pts += 1; groups[g][t2].pts += 1; }
+  }
+  // Sort each group: pts desc, gd desc, gf desc
+  const sorted = {};
+  for (const [g, teams] of Object.entries(groups)) {
+    sorted[g] = Object.entries(teams)
+      .sort((a,b) => b[1].pts-a[1].pts || b[1].gd-a[1].gd || b[1].gf-a[1].gf)
+      .map(([name, stats]) => ({name, ...stats}));
+  }
+  return sorted;
+}
+
+function getGroupPositionResults(matches) {
+  const standings = calcGroupStandings(matches);
+  const results = {};
+  const letterToGroup = {A:'Group A',B:'Group B',C:'Group C',D:'Group D',E:'Group E',F:'Group F',
+    G:'Group G',H:'Group H',I:'Group I',J:'Group J',K:'Group K',L:'Group L'};
+  
+  // Map each group letter to team names by position
+  for (const [g, teams] of Object.entries(standings)) {
+    if (teams.length < 2) continue; // group not finished
+    // Check if group is complete (all 3 matchdays played = 3 matches per team = 6 total)
+    const totalPlayed = teams.reduce((s,t)=>s+t.played,0)/2;
+    if (totalPlayed < 6) continue; // group not complete yet
+    results[`1${g}`] = teams[0].name;
+    results[`2${g}`] = teams[1].name;
+    if (teams[2]) results[`3${g}`] = teams[2].name;
+    if (teams[3]) results[`4${g}`] = teams[3].name;
+  }
+
+  // Determine best 3rd place teams (4 qualify from 12 groups)
+  const thirdPlaces = Object.entries(standings)
+    .filter(([g, teams]) => {
+      const total = teams.reduce((s,t)=>s+t.played,0)/2;
+      return total >= 6 && teams[2];
+    })
+    .map(([g, teams]) => ({group:g, ...teams[2]}))
+    .sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
+  
+  // Mark which 3rd place teams qualify (top 4)
+  thirdPlaces.forEach((t,i) => {
+    if (i < 4) results[`3${t.group}_CLASIFICA`] = t.name;
+  });
+
+  return results;
+}
+
+// ─── KO Match resolver ─────────────────────────────────────────────────
+const W_TO_MATCH = {
+  'W73':'2A-2B','W74':'1C-2F','W75':'1E-3ABCDF','W76':'1F-2C',
+  'W77':'2E-2I','W78':'1I-3CDFGH','W79':'1A-3CEFHI','W80':'1L-3EHIJK',
+  'W81':'1G-3AEHIJ','W82':'1D-3BEFIJ','W83':'1H-2J','W84':'2K-2L',
+  'W85':'1B-3EFGIJ','W86':'2D-2G','W87':'1J-2H','W88':'1K-3DEIJL',
+  'W89':'W73-W75','W90':'W74-W77','W91':'W76-W78','W92':'W79-W80',
+  'W93':'W83-W84','W94':'W81-W82','W95':'W86-W88','W96':'W85-W87',
+  'W97':'W89-W90','W98':'W91-W92','W99':'W93-W94','W100':'W95-W96',
+  'W101':'W97-W98','W102':'W99-W100',
+  'L101':'loser of W97-W98','L102':'loser of W99-W100'
+};
+
+function resolveKOCode(code, allResults, groupPos) {
+  if (!code || code === '-') return null;
+  if (code.match(/^[1-4][A-L]$/)) return groupPos[code] || null;
+  if (code.match(/^3[A-L]+$/)) {
+    for (const g of code.slice(1).split('')) {
+      if (groupPos[`3${g}_CLASIFICA`]) return groupPos[`3${g}_CLASIFICA`];
+    }
+    return null;
+  }
+  if (code.startsWith('W')) {
+    const matchName = W_TO_MATCH[code];
+    if (!matchName) return null;
+    const match = allResults[matchName];
+    if (!match || match.status !== 'FT') return null;
+    return match.homeScore > match.awayScore ? match.homeTeam :
+           match.awayScore > match.homeScore ? match.awayTeam : null;
+  }
+  if (code.startsWith('L')) {
+    const matchName = W_TO_MATCH[code.replace('L','W')];
+    if (!matchName) return null;
+    const match = allResults[matchName];
+    if (!match || match.status !== 'FT') return null;
+    return match.homeScore > match.awayScore ? match.awayTeam :
+           match.awayScore > match.homeScore ? match.homeTeam : null;
+  }
+  return null;
+}
+
 // ─── Merged results ────────────────────────────────────────────────────
 async function getResults() {
   const [wc, live] = await Promise.all([refreshWC(), refreshLive()]);
   const results = {...wc.results};for(const [k,v] of Object.entries(live.liveResults)){if(v.status==='LIVE'||!results[k])results[k]=v;}
+  // Add group position results automatically
+  const groupPosResults = getGroupPositionResults(wc.matches);
+  Object.assign(results, groupPosResults);
+  
+  // Resolve all ko_team codes automatically
+  for (const m of PORRA.ko_team) {
+    const code = m.result;
+    if (!code || code === '-') continue;
+    const team = resolveKOCode(code, results, groupPosResults);
+    if (team) results[m.name] = {team, status:'CLASSIFIED'};
+  }
   const allMatches = wc.matches.map(m => {
     const liveM = live.liveMatches.find(l=>l.excelName===m.excelName);
     if(liveM) return {...m,...liveM};
