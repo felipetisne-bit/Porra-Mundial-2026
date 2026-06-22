@@ -353,9 +353,13 @@ async function load(manual=false) {
   try {
     const r=await fetch('/api/live'); if(!r.ok) throw new Error('HTTP '+r.status);
     const d=await r.json(); if(!d.ok) throw new Error(d.error);
-    // Save previous positions before updating
-    if(standings.length) standings.forEach(p=>{ prevPositions[p.name]=p.pos; });
-    standings=d.standings||[]; todayMatches=d.todayMatches||[]; awardsData=d.awardsDisplay||[];
+    // Save current positions BEFORE updating (for arrow comparison next cycle)
+    const newStandings=d.standings||[];
+    if(newStandings.length&&standings.length){
+      // Compare new positions vs old — save old positions
+      standings.forEach(p=>{ prevPositions[p.name]=p.pos; });
+    }
+    standings=newStandings; todayMatches=d.todayMatches||[]; awardsData=d.awardsDisplay||[];
     if(awardsData.length) renderAwards(awardsData);
     renderHero(d.stats); renderMatches(todayMatches); renderStandings(standings);
     if(typeof updateRefreshRate==='function') updateRefreshRate();
