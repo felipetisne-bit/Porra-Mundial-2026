@@ -578,10 +578,54 @@ async function loadPronosticos(date) {
   } catch(e){document.getElementById('pronosticos-content').innerHTML=`<p style="color:var(--r)">Error: ${e.message}</p>`;}
 }
 
+function renderGroupPosBlock(m) {
+  const total=m.players.length;
+  const hasResult=m.result&&m.result!=='-';
+  const pct=v=>total?Math.round(v/total*100):0;
+  const votes={};
+  m.players.forEach(p=>{ const v=(p.pred||'').trim(); if(v) votes[v]=(votes[v]||0)+1; });
+  const sorted=Object.entries(votes).sort((a,b)=>b[1]-a[1]);
+  const posLabel=m.match; // e.g. "1º GRUPO A"
+  let html=`<div style="background:var(--bg2,#f8f0ff);border-radius:10px;padding:14px;margin-bottom:10px;border:1px solid #e0c8ff">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div>
+        <div style="font-weight:700;font-size:.9em;color:var(--p)">${posLabel}</div>
+        <div style="font-size:.72em;color:var(--mu)">Máx ${m.maxPts} pts · ${total} jugadores</div>
+      </div>
+      ${hasResult?`<div style="background:var(--v);color:#fff;border-radius:6px;padding:4px 10px;font-size:.78em;font-weight:700">${m.result}</div>`:`<div style="background:#f0f0f0;color:var(--mu);border-radius:6px;padding:4px 10px;font-size:.78em">⏳ Pendiente</div>`}
+    </div>
+    <div style="margin-bottom:10px">`;
+  sorted.slice(0,5).forEach(([v,n])=>{
+    const p=pct(n);
+    const isHit=hasResult&&namesMatchJS(v,m.result);
+    html+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+      <div style="font-size:.75em;width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${isHit?'var(--v)':'var(--tx)'};font-weight:${isHit?700:400}">${v}</div>
+      <div style="flex:1;background:#e8d5ff;border-radius:3px;height:6px"><div style="background:${isHit?'var(--v)':'var(--p)'};height:6px;border-radius:3px;width:${p}%"></div></div>
+      <div style="font-size:.7em;color:var(--mu);width:40px;text-align:right">${n} (${p}%)</div>
+    </div>`;
+  });
+  html+=`</div><div style="border-top:1px solid #e0c8ff;padding-top:8px;display:flex;flex-wrap:wrap;gap:4px">`;
+  m.players.forEach(p=>{
+    const isHit=hasResult&&p.pts>0;
+    const isMiss=hasResult&&p.pts===0;
+    html+=`<span style="font-size:.7em;padding:2px 7px;border-radius:4px;background:${isHit?'#EAF3DE':isMiss?'#FCEBEB':'var(--bg2,#f0f0f0)'};color:${isHit?'#3B6D11':isMiss?'#A32D2D':'var(--mu)'}">${p.name.split(' ')[0]}: ${p.pred}${isHit?' ✓':isMiss?' ✗':''}</span>`;
+  });
+  html+=`</div></div>`;
+  return html;
+}
+
+function namesMatchJS(a, b) {
+  if(!a||!b) return false;
+  const norm=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+  const na=norm(a), nb=norm(b);
+  return na===nb||na.includes(nb)||nb.includes(na);
+}
+
 function renderPronosticos(pronosticos) {
   if(!pronosticos.length){document.getElementById('pronosticos-content').innerHTML='<p style="color:var(--mu);text-align:center;padding:20px">Sin partidos para esta fecha</p>';return;}
   let html='';
   pronosticos.forEach(m=>{
+    if(m.match_type==='group_pos'){html+=renderGroupPosBlock(m);return;}
     const hasResult=m.result&&m.result!=='-';
     const resLabel=hasResult?m.result.split('|')[1]||m.result:'⏳ Pendiente';
     const statCls=m.status==='LIVE'?'slv':m.status==='FT'?'sft':'sns';
