@@ -330,7 +330,7 @@ footer{text-align:center;padding:22px 14px;color:var(--mu);font-size:11px;border
 <script>
 // ─── STATE ────────────────────────────────────────────────────────────
 let standings=[], todayMatches=[], awardsData=[];
-let currentTab='all', currentJornadaDate='', adminToken='', pendingAnalysis=null;
+let currentTab='all', currentJornadaDate='', adminToken='', pendingAnalysis=null, prevPositions={};
 let availableDates=[];
 
 // ─── PAGE NAV ──────────────────────────────────────────────────────────
@@ -353,9 +353,12 @@ async function load(manual=false) {
   try {
     const r=await fetch('/api/live'); if(!r.ok) throw new Error('HTTP '+r.status);
     const d=await r.json(); if(!d.ok) throw new Error(d.error);
+    // Save previous positions before updating
+    if(standings.length) standings.forEach(p=>{ prevPositions[p.name]=p.pos; });
     standings=d.standings||[]; todayMatches=d.todayMatches||[]; awardsData=d.awardsDisplay||[];
     if(awardsData.length) renderAwards(awardsData);
     renderHero(d.stats); renderMatches(todayMatches); renderStandings(standings);
+    if(typeof updateRefreshRate==='function') updateRefreshRate();
     renderStats(d.stats,standings); renderNarrative(d.stats,standings);
     const ts=new Date(d.lastUpdated);
     document.getElementById('upd').textContent=`Última actualización: ${ts.toLocaleTimeString('es-CL')} · Auto-refresh 45s`;
@@ -414,7 +417,19 @@ function renderTbl(pl) {
     const s=p.bySection||{};
     const ko=(s.ko_partidos||0)+(s.ko_equipos||0);
     const premios=(s.honor||0)+(s.bota_balon||0);
-    html+=`<tr><td class="${rk}">${p.pos}</td><td><strong>${p.name}</strong></td>
+    // Position variation arrow
+    const prev=prevPositions[p.name];
+    let arrow='';
+    if(prev&&prev!==p.pos){
+      if(p.pos<prev) arrow=`<span style="color:#22c55e;font-size:.75em;margin-left:3px">▲${prev-p.pos}</span>`;
+      else arrow=`<span style="color:#ef4444;font-size:.75em;margin-left:3px">▼${p.pos-prev}</span>`;
+    } else if(prev&&prev===p.pos) {
+      arrow=`<span style="color:var(--mu);font-size:.7em;margin-left:3px">=</span>`;
+    }
+    // Live highlight
+    const isLive=todayMatches.some(m=>m.status==='LIVE');
+    const rowStyle=isLive?'transition:background .5s;':'';
+    html+=`<tr style="${rowStyle}"><td class="${rk}">${p.pos}${arrow}</td><td><strong>${p.name}</strong></td>
       <td><span class="bpt">${p.total}</span></td><td>${s.grupos||0}</td><td>${ko}</td><td>${premios}</td><td>${zone}</td></tr>`;
   });
   document.getElementById('tbody').innerHTML=html||'<tr><td colspan="7" style="text-align:center;color:var(--mu)">Sin datos</td></tr>';
@@ -953,7 +968,13 @@ function closeOv(e){if(e.target===document.getElementById('ov'))closeOverlay();}
 
 // ─── BOOT ─────────────────────────────────────────────────────────────
 load();
-setInterval(load,45000);
+let refreshTimer=setInterval(load,45000);
+function updateRefreshRate(){
+  const isLive=todayMatches.some(m=>m.status==='LIVE');
+  clearInterval(refreshTimer);
+  refreshTimer=setInterval(load,isLive?15000:45000);
+  document.getElementById('upd').textContent=`Última actualización: ${new Date().toLocaleTimeString('es-CL')} · Auto-refresh ${isLive?'15s':'45s'}`;
+}
 </script>
 <div class="admin-overlay" id="ai-modal-ov">
   <div class="admin-box" style="max-width:360px;text-align:center">
