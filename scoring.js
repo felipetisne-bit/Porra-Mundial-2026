@@ -158,12 +158,11 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
   }
 
   // ── 2. Group position predictions ─────────────────────────────────
-  // result like "1A" means 1st place in Group A
-  // player predicts team name
+  // result like "1A" means 1st place in Group A — resolved automatically from standings
   for (const m of data.group_pos) {
-    // espnResults can provide actual group standings: espnResults['1º GRUPO A'] = { team: 'México' }
-    const espn = espnResults[m.name];
-    const actualTeam = (espn && espn.team) ? espn.team : (m.result !== '-' && !m.result.match(/^[1-4][A-L]$/) ? m.result : null);
+    // espnResults now includes auto-calculated group standings keyed by "1A", "2A", etc.
+    const code = m.result; // e.g. "1A", "2B", "3C", "4D"
+    const actualTeam = espnResults[code] || null;
     if (!actualTeam) continue;
 
     for (const [pName, pd] of Object.entries(m.predictions)) {
@@ -190,7 +189,14 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
   // ── 4. KO team classifiers ─────────────────────────────────────────
   for (const m of data.ko_team) {
     const espn = espnResults[m.name];
-    const actualTeam = (espn && espn.team) ? espn.team : null;
+    // actualTeam: from auto-resolved ko_team result, ESPN FT result, or direct team field
+    let actualTeam = (espn && espn.team) ? espn.team : null;
+    if (!actualTeam && espn && espn.status === 'FT') {
+      actualTeam = espn.homeScore > espn.awayScore ? espn.homeTeam : espn.awayTeam;
+    }
+    if (!actualTeam && espn && espn.status === 'CLASSIFIED') {
+      actualTeam = espn.team;
+    }
     if (!actualTeam) continue;
 
     for (const [pName, pd] of Object.entries(m.predictions)) {
