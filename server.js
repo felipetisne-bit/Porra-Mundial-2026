@@ -445,14 +445,31 @@ app.get('/api/analysis/:type', async(req,res)=>{
 app.get('/api/pronosticos', async(req,res)=>{
   try {
     const dateStr=req.query.date||getTodayDates();
+    const primaryDate=Array.isArray(dateStr)?dateStr[0]:dateStr;
     const {results}=await getResults();
     const jornadaMatches=getJornadaMatches(dateStr,results);
     const pronosticos=jornadaMatches.map(m=>({
       match:m.name,date:m.date,bonus:m.bonus,maxPts:m.max_pts,
+      match_type:m.match_type||'group_score',
       result:m.result||'-',status:m.liveStatus||'NS',
       players:Object.entries(m.predictions).map(([name,pd])=>({name,pred:pd.pred,pts:m.result&&m.result!=='-'?calcGroupScore(pd.pred,m.result,m.bonus):null})).sort((a,b)=>(b.pts||0)-(a.pts||0))
     }));
-    res.json({ok:true,date:dateStr,pronosticos});
+    // Add group_pos predictions for today's closing groups
+    const dates=Array.isArray(dateStr)?dateStr:[dateStr];
+    const groupPosByDate=PORRA.group_pos.filter(m=>dates.includes(m.date));
+    const groupPosPronosticos=groupPosByDate.map(m=>{
+      const actualTeam=results[m.result]||null;
+      return {
+        match:m.name,date:m.date,bonus:m.bonus,maxPts:m.max_pts,
+        match_type:'group_pos',
+        result:actualTeam||'-',status:actualTeam?'FT':'NS',
+        players:Object.entries(m.predictions).map(([name,pd])=>({
+          name,pred:pd.pred,
+          pts:actualTeam?(namesMatch(pd.pred,actualTeam)?m.max_pts:0):null
+        })).sort((a,b)=>(b.pts||0)-(a.pts||0))
+      };
+    });
+    res.json({ok:true,date:primaryDate,pronosticos:[...pronosticos,...groupPosPronosticos]});
   } catch(e){res.status(500).json({ok:false,error:e.message});}
 });
 
