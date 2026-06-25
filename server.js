@@ -36,20 +36,16 @@ async function fetchJSON(url, opts={}) {
   return res.json();
 }
 
-// FIX #3: Santiago timezone date (Chile = UTC-4 in winter Jun-Aug, UTC-3 in summer)
 function getSantiagoDate(d) {
-  // Try Intl first; fall back to explicit UTC-4 offset (Chilean winter)
   try {
     const dt = d ? new Date(d) : new Date();
     const str = dt.toLocaleDateString('en-CA', {timeZone:'America/Santiago'});
     if (str && str.match(/^\d{4}-\d{2}-\d{2}$/)) return str;
   } catch(e) {}
-  // Fallback: explicit UTC-4 (CLT, Chilean winter)
   const ms = (d ? new Date(d) : new Date()).getTime() - 4 * 3600000;
   return new Date(ms).toISOString().slice(0,10);
 }
 function getTodayStr() { return getSantiagoDate(); }
-// Returns [today, yesterday] in Santiago time to catch UTC-7 stadium games
 function getTodayDates() {
   const today = getTodayStr();
   const ms = new Date().getTime() - 4*3600000 - 86400000;
@@ -61,7 +57,7 @@ function getTodayDates() {
 let wcCache   = { results:{}, matches:[], ts:0 };
 let liveCache = { liveResults:{}, liveMatches:[], ts:0 };
 
-// ─── Source 1: openfootball (historical results) ───────────────────────
+// ─── Source 1: openfootball ────────────────────────────────────────────
 async function refreshWC() {
   const now = Date.now();
   if(now - wcCache.ts < 120000) return wcCache;
@@ -92,16 +88,14 @@ async function refreshWC() {
   return wcCache;
 }
 
-// ─── Source 2: football-data.org (LIVE scores) ─────────────────────────
-// FIX #2: Real live scores from football-data.org
+// ─── Source 2: live scores ─────────────────────────────────────────────
 async function refreshLive() {
   const now = Date.now();
-  if(now - liveCache.ts < 30000) return liveCache; // every 30s
+  if(now - liveCache.ts < 30000) return liveCache;
 
   const liveResults={}, liveMatches=[];
 
   if(!FOOTBALL_API_KEY) {
-    // Fallback to ESPN if no football-data key
     try {
       const data = await fetchJSON('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=20');
       for(const event of (data.events||[])) {
@@ -123,7 +117,6 @@ async function refreshLive() {
       }
     } catch(e){ console.error('[ESPN fallback]',e.message); }
   } else {
-    // football-data.org API — World Cup 2026 competition ID = 2000
     try {
       const data = await fetchJSON('https://api.football-data.org/v4/competitions/2000/matches?status=LIVE,IN_PLAY,PAUSED', {
         headers:{'X-Auth-Token': FOOTBALL_API_KEY}
@@ -142,7 +135,6 @@ async function refreshLive() {
           liveMatches.push({espnHome:home,espnAway:away,homeScore:hScore,awayScore:aScore,status:isLive?'LIVE':'FT',date:getSantiagoDate(match.utcDate),excelName});
         }
       }
-      // Also fetch today's finished matches
       const today = getTodayStr();
       const data2 = await fetchJSON(`https://api.football-data.org/v4/competitions/2000/matches?dateFrom=${today}&dateTo=${today}`, {
         headers:{'X-Auth-Token': FOOTBALL_API_KEY}
@@ -158,7 +150,6 @@ async function refreshLive() {
           liveResults[excelName]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:home,awayTeam:away};
         }
       }
-      if(Object.keys(liveResults).length) console.log(`[FD] Live/today: ${Object.keys(liveResults).length} matches`);
     } catch(e){ console.error('[football-data]',e.message); }
   }
 
@@ -168,11 +159,9 @@ async function refreshLive() {
 
 // ─── Group Standings Calculator ────────────────────────────────────────
 function calcGroupStandings(matches) {
-  // Build standings for each group from match results
   const groups = {};
   for (const m of matches) {
     if (!m.group || !m.group.startsWith('Group')) continue;
-    // Support both openfootball format (team1/team2/score.ft) and transformed format (espnHome/espnAway/homeScore/awayScore)
     const t1 = m.team1 || m.espnHome;
     const t2 = m.team2 || m.espnAway;
     const g1raw = m.score?.ft?.[0] ?? m.homeScore;
@@ -192,7 +181,6 @@ function calcGroupStandings(matches) {
     else if (g1 < g2) { groups[g][t2].pts += 3; }
     else { groups[g][t1].pts += 1; groups[g][t2].pts += 1; }
   }
-  // Sort each group: pts desc, gd desc, gf desc
   const sorted = {};
   for (const [g, teams] of Object.entries(groups)) {
     sorted[g] = Object.entries(teams)
@@ -202,35 +190,56 @@ function calcGroupStandings(matches) {
   return sorted;
 }
 
-function getGroupPositionResults(matches) {
+
+// ─── Helper: grupos cerrados según fechas del porra.json ──────────────
+function getClosedGroups(porraData, todayStr) {
+  const closedGroups = new Set();
+  for (const m of porraData.group_pos) {
+    if (m.date && m.date <= todayStr) {
+      const match = m.result.match(/^[1-4]([A-L])$/);
+      if (match) closedGroups.add(match[1]);
+    }
+  }
+  return closedGroups;
+}
+
+// ─── FIX PRINCIPAL: getGroupPositionResults ────────────────────────────
+// Recibe all12Done y closedGroups para control preciso
+function getGroupPositionResults(matches, all12Done, closedGroups) {
   const standings = calcGroupStandings(matches);
   const results = {};
-  const letterToGroup = {A:'Group A',B:'Group B',C:'Group C',D:'Group D',E:'Group E',F:'Group F',
-    G:'Group G',H:'Group H',I:'Group I',J:'Group J',K:'Group K',L:'Group L'};
-  
-  // Map each group letter to team names by position
+
   for (const [g, teams] of Object.entries(standings)) {
-    if (teams.length < 2) continue; // group not finished
-    // Check if group is complete (all 3 matchdays played = 3 matches per team = 6 total)
-    const totalPlayed = teams.reduce((s,t)=>s+t.played,0)/2;
-    if (totalPlayed < 6) continue; // group not complete yet
+    if (teams.length < 2) continue;
+    // Solo publicar posiciones de grupos cerrados según fecha del porra.json
+    if (!closedGroups.has(g)) continue;
+
     results[`1${g}`] = teams[0].name;
     results[`2${g}`] = teams[1].name;
     if (teams[2]) results[`3${g}`] = teams[2].name;
     if (teams[3]) results[`4${g}`] = teams[3].name;
   }
 
-  // Determine best 3rd place teams from all groups with data
-  // Use current standings as projection (same as Excel behavior)
-  const groupsWithData = Object.entries(standings).filter(([g, teams]) => teams[2]);
-  const thirdPlaces = groupsWithData
-    .map(([g, teams]) => ({group:g, ...teams[2]}))
-    .sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
-  
-  // Mark top 4 projected 3rd place teams
-  thirdPlaces.forEach((t,i) => {
-    if (i < 4) results[`3${t.group}_CLASIFICA`] = t.name;
-  });
+  // ─── FIX: Solo calcular mejores 3° cuando los 12 grupos estén cerrados ──
+  // Antes esto se hacía siempre, dando puntos anticipados con grupos incompletos
+  if (all12Done) {
+    const groupsWithThird = Object.entries(standings)
+      .filter(([g, teams]) => closedGroups.has(g) && teams[2]);
+
+    const thirdPlaces = groupsWithThird
+      .map(([g, teams]) => ({group:g, ...teams[2]}))
+      .sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
+
+    // Los 8 mejores terceros clasifican (32 equipos = 12×primero + 12×segundo + 8 mejores 3°)
+    // Marcamos los 8 mejores como clasificados
+    thirdPlaces.forEach((t, i) => {
+      if (i < 8) results[`3${t.group}_CLASIFICA`] = t.name;
+    });
+
+    console.log(`[BEST3] Todos grupos cerrados. Mejores 3° clasificados: ${thirdPlaces.slice(0,8).map(t=>t.name).join(', ')}`);
+  }
+  // Si !all12Done: NO se publican _CLASIFICA, por lo que resolveKOCode no
+  // podrá resolver ningún slot 3XXXX y devolverá null → 0 pts. CORRECTO.
 
   return results;
 }
@@ -250,13 +259,16 @@ const W_TO_MATCH = {
 
 function resolveKOCode(code, allResults, groupPos) {
   if (!code || code === '-') return null;
+  // 1° o 2° o 3° o 4° de un grupo cerrado
   if (code.match(/^[1-4][A-L]$/)) return groupPos[code] || null;
-  if (code.match(/^3[A-L]+$/)) {
+  // Mejor 3° — solo resuelve si _CLASIFICA fue poblado (all12Done=true)
+  if (code.match(/^3[A-L]{2,}$/)) {
     for (const g of code.slice(1).split('')) {
       if (groupPos[`3${g}_CLASIFICA`]) return groupPos[`3${g}_CLASIFICA`];
     }
-    return null;
+    return null; // No resuelto hasta que cierren los 12 grupos
   }
+  // Ganador de partido KO
   if (code.startsWith('W')) {
     const matchName = W_TO_MATCH[code];
     if (!matchName) return null;
@@ -265,6 +277,7 @@ function resolveKOCode(code, allResults, groupPos) {
     return match.homeScore > match.awayScore ? match.homeTeam :
            match.awayScore > match.homeScore ? match.awayTeam : null;
   }
+  // Perdedor de partido KO
   if (code.startsWith('L')) {
     const matchName = W_TO_MATCH[code.replace('L','W')];
     if (!matchName) return null;
@@ -279,32 +292,41 @@ function resolveKOCode(code, allResults, groupPos) {
 // ─── Merged results ────────────────────────────────────────────────────
 async function getResults() {
   const [wc, live] = await Promise.all([refreshWC(), refreshLive()]);
-  const results = {...wc.results};for(const [k,v] of Object.entries(live.liveResults)){if(v.status==='LIVE'||!results[k])results[k]=v;}
-  // Add group position results automatically
-  const groupPosResults = getGroupPositionResults(wc.matches);
-  Object.assign(results, groupPosResults);
-  
-  // Resolve all ko_team codes automatically
-  // Only resolve 3rd-place slots when ALL 12 groups are complete
-  const completedGroupCount = Object.values(calcGroupStandings(wc.matches))
-    .filter(teams => teams.reduce((s,t)=>s+t.played,0)/2 >= 6).length;
+  const results = {...wc.results};
+  for(const [k,v] of Object.entries(live.liveResults)){
+    if(v.status==='LIVE'||!results[k]) results[k]=v;
+  }
+
+  // Determinar grupos cerrados según fechas del porra.json (más preciso que contar partidos)
+  const todayForGroups = getTodayStr();
+  const closedGroups = getClosedGroups(PORRA, todayForGroups);
+  const completedGroupCount = closedGroups.size;
   const all12Done = completedGroupCount === 12;
 
+  console.log(`[GROUPS] ${completedGroupCount}/12 grupos cerrados (${[...closedGroups].sort().join(',')}). Best3: ${all12Done}`);
+
+  // Calcular posiciones — pasa closedGroups para control preciso por fecha
+  const groupPosResults = getGroupPositionResults(wc.matches, all12Done, closedGroups);
+  Object.assign(results, groupPosResults);
+
+  // Resolver slots ko_team
   for (const m of PORRA.ko_team) {
     const code = m.result;
     if (!code || code === '-') continue;
-    // Skip best-3rd slots until all 12 groups close
-    if (!all12Done && code.match(/^3[A-L]{2,}/)) continue;
+    // resolveKOCode ya no puede resolver 3XXXX si all12Done=false
+    // porque _CLASIFICA no fue poblado. La guarda aquí es redundante pero explícita.
+    if (!all12Done && code.match(/^3[A-L]{2,}$/)) continue;
     const team = resolveKOCode(code, results, groupPosResults);
     if (team) results[m.name] = {team, status:'CLASSIFIED'};
   }
+
   const allMatches = wc.matches.map(m => {
     const liveM = live.liveMatches.find(l=>l.excelName===m.excelName);
     if(liveM) return {...m,...liveM};
     return m;
   });
   const liveCount = live.liveMatches.filter(m=>m.status==='LIVE').length;
-  return {results, matches:allMatches, liveCount};
+  return {results, matches:allMatches, liveCount, completedGroupCount, all12Done};
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────
@@ -386,7 +408,7 @@ function buildPremiosFecha(jornadaMatches) {
 }
 
 async function generateGPTAnalysis(type, context) {
-  if(!ANTHROPIC_API_KEY) return '⚠️ Configura ANTHROPIC_API_KEY en Railway Variables. Ve a railway.app → tu proyecto → Variables → New Variable → ANTHROPIC_API_KEY → tu clave de console.anthropic.com';
+  if(!ANTHROPIC_API_KEY) return '⚠️ Configura ANTHROPIC_API_KEY en Railway Variables.';
   try {
     const prompts = {
       impacto:`Eres el analista de una porra de fútbol entre amigos chilenos. Con estos datos genera un análisis de impacto en español informal y entretenido (máx 300 palabras). Incluye: qué partidos generaron más movimiento, grupos de puntos, caída del día, partido bonus más decisivo. Datos: ${JSON.stringify(context)}`,
@@ -405,7 +427,7 @@ async function generateGPTAnalysis(type, context) {
 // ─── API Routes ────────────────────────────────────────────────────────
 app.get('/api/live', async(req,res)=>{
   try {
-    const {results,matches,liveCount}=await getResults();
+    const {results,matches,liveCount,completedGroupCount,all12Done}=await getResults();
     const standings=recalcStandings(PORRA,results,awardsState,honorsState);
     const avg=standings.length?(standings.reduce((s,p)=>s+p.total,0)/standings.length).toFixed(1):0;
     const todayMs=getTodayMatches(matches);
@@ -414,7 +436,11 @@ app.get('/api/live', async(req,res)=>{
       ...PORRA.player_awards.map(a=>({label:a.name,pts:a.max_pts,type:'player',result:awardsState[a.name.trim()]||null,predictions:Object.entries(a.predictions).map(([n,p])=>({player:n,pred:p.pred,correct:awardsState[a.name.trim()]?namesMatch(p.pred,awardsState[a.name.trim()]):null}))}))
     ];
     res.json({ok:true,standings,todayMatches:todayMs,allMatches:matches,awardsDisplay,
-      stats:{liveCount,leaderPts:standings[0]?.total||0,leader:standings[0]?.name||'-',avgPts:avg,withZero:standings.filter(p=>p.total===0).length,total:standings.length,playedCount:Object.keys(results).length},
+      stats:{liveCount,leaderPts:standings[0]?.total||0,leader:standings[0]?.name||'-',avgPts:avg,
+             withZero:standings.filter(p=>p.total===0).length,total:standings.length,
+             playedCount:Object.keys(results).length,
+             completedGroups:completedGroupCount,  // nuevo: grupos cerrados
+             best3Resolved:all12Done},             // nuevo: si ya se resolvieron los 3°
       lastUpdated:new Date().toISOString()});
   } catch(e){console.error(e);res.status(500).json({ok:false,error:e.message});}
 });
@@ -463,7 +489,6 @@ app.get('/api/pronosticos', async(req,res)=>{
       result:m.result||'-',status:m.liveStatus||'NS',
       players:Object.entries(m.predictions).map(([name,pd])=>({name,pred:pd.pred,pts:m.result&&m.result!=='-'?calcGroupScore(pd.pred,m.result,m.bonus):null})).sort((a,b)=>(b.pts||0)-(a.pts||0))
     }));
-    // Add group_pos predictions for today's closing groups
     const dates=Array.isArray(dateStr)?dateStr:[dateStr];
     const groupPosByDate=PORRA.group_pos.filter(m=>dates.includes(m.date));
     const groupPosPronosticos=groupPosByDate.map(m=>{
@@ -517,8 +542,12 @@ app.get('/api/match/:name',async(req,res)=>{
 });
 
 app.get('/api/debug',async(req,res)=>{
-  const {results,matches,liveCount}=await getResults();
-  res.json({today:getTodayStr(),liveCount,footballApiKey:!!FOOTBALL_API_KEY,anthropicKey:!!ANTHROPIC_API_KEY,mappedResults:Object.keys(results).length,results,todayMatches:getTodayMatches(matches)});
+  const {results,matches,liveCount,completedGroupCount,all12Done}=await getResults();
+  res.json({today:getTodayStr(),liveCount,footballApiKey:!!FOOTBALL_API_KEY,anthropicKey:!!ANTHROPIC_API_KEY,
+    mappedResults:Object.keys(results).length,results,
+    completedGroups:completedGroupCount,best3Resolved:all12Done,
+    ko_team_resolved:Object.keys(results).filter(k=>k.startsWith('Dieciseisavofinalista')),
+    todayMatches:getTodayMatches(matches)});
 });
 
 app.get('/health',(_, res)=>res.json({ok:true,uptime:process.uptime()}));
