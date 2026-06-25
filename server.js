@@ -220,19 +220,21 @@ function getGroupPositionResults(matches) {
     if (teams[3]) results[`4${g}`] = teams[3].name;
   }
 
-  // Determine best 3rd place teams (4 qualify from 12 groups)
-  const thirdPlaces = Object.entries(standings)
-    .filter(([g, teams]) => {
-      const total = teams.reduce((s,t)=>s+t.played,0)/2;
-      return total >= 6 && teams[2];
-    })
-    .map(([g, teams]) => ({group:g, ...teams[2]}))
-    .sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
-  
-  // Mark which 3rd place teams qualify (top 4)
-  thirdPlaces.forEach((t,i) => {
-    if (i < 4) results[`3${t.group}_CLASIFICA`] = t.name;
+  // Determine best 3rd place teams ONLY when ALL 12 groups are complete
+  const completedGroups = Object.entries(standings).filter(([g, teams]) => {
+    const total = teams.reduce((s,t)=>s+t.played,0)/2;
+    return total >= 6 && teams[2];
   });
+  
+  if (completedGroups.length === 12) {
+    // All groups done — pick top 4 third place teams
+    const thirdPlaces = completedGroups
+      .map(([g, teams]) => ({group:g, ...teams[2]}))
+      .sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
+    thirdPlaces.forEach((t,i) => {
+      if (i < 4) results[`3${t.group}_CLASIFICA`] = t.name;
+    });
+  }
 
   return results;
 }
