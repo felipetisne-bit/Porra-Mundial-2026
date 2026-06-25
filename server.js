@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const { recalcStandings, findExcelMatchForESPN, toResultFmt, calcGroupScore, namesMatch } = require('./scoring');
+const { recalcStandings, findExcelMatchForESPN, toResultFmt, calcGroupScore, namesMatch, calcTeamPred } = require('./scoring');
 const PORRA = require('./data/porra.json');
 
 const app = express();
@@ -466,7 +466,77 @@ app.get('/api/jornada', async(req,res)=>{
     const summary=buildJornadaSummary(jornadaMatches,standings);
     const premios=buildPremiosFecha(jornadaMatches);
     const allDates=[...new Set([...PORRA.group_score,...PORRA.ko_score].map(m=>m.date).filter(Boolean))].sort();
-    res.json({ok:true,date:primaryDate,jornadaMatches,summary,premios,availableDates:allDates,lastUpdated:new Date().toISOString()});
+
+    // ── Puntos de posición de grupos y clasificados para la jornada ──
+    const dates=Array.isArray(dateStr)?dateStr:[dateStr];
+
+    // group_pos: posiciones de grupo que cierran en estas fechas
+    const groupPosPts={};
+    for(const m of PORRA.group_pos.filter(m=>dates.includes(m.date))){
+      const actualTeam=results[m.result]||null;
+      if(!actualTeam) continue;
+      for(const [pName,pd] of Object.entries(m.predictions)){
+        const pts=(namesMatch(pd.pred,actualTeam)?m.max_pts:0);
+        groupPosPts[pName]=(groupPosPts[pName]||0)+pts;
+      }
+    }
+
+    // ko_team: clasificados cuyo grupo cierra en estas fechas
+    // Agrupa todos los clasificados resueltos de la ronda Dieciseisavofinalista
+    const classified16=new Set();
+    for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Dieciseisavofinalista'))){
+      const espn=results[m.name];
+      if(espn&&espn.status==='CLASSIFIED'&&espn.team) classified16.add(espn.team);
+    }
+    // Solo contar los que clasificaron por grupos que cerraron HOY
+    const groupsClosingToday=new Set();
+    for(const m of PORRA.group_pos.filter(m=>dates.includes(m.date))){
+      const match=m.result.match(/^[1-4]([A-L])$/);
+      if(match) groupsClosingToday.add(match[1]);
+    }
+    const classified16Today=new Set();
+    for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Dieciseisavofinalista'))){
+      const espn=results[m.name];
+      if(!espn||espn.status!=='CLASSIFIED'||!espn.team) continue;
+      // El código del slot (ej: "1A","2B") indica de qué grupo viene
+      const code=m.result;
+      if(code.match(/^[12][A-L]$/)){
+        const g=code[1];
+        if(groupsClosingToday.has(g)) classified16Today.add(espn.team);
+      }
+    }
+    const ko16Pts={};
+    const { norm:normFn } = require('./scoring');
+    // Necesitamos calcTeamPred — lo importamos
+    const { calcTeamPred:ctp } = (() => {
+      try { return require('./scoring'); } catch(e){ return {}; }
+    })();
+    if(classified16Today.size>0 && ctp){
+      const tracked={};
+      for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Dieciseisavofinalista'))){
+        for(const [pName,pd] of Object.entries(m.predictions)){
+          if(!tracked[pName]) tracked[pName]=new Set();
+          let hit=false;
+          for(const actual of classified16Today){
+            if((ctp(pd.pred,actual,2)||0)>0){hit=true;break;}
+          }
+          if(!hit) continue;
+          const key='16_'+(pd.pred||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+          if(tracked[pName].has(key)) continue;
+          tracked[pName].add(key);
+          ko16Pts[pName]=(ko16Pts[pName]||0)+2;
+        }
+      }
+    }
+
+    // Enriquecer summary con pts de pos_grupos y ko_16 de hoy
+    const summaryEnriched=summary.map(p=>({
+      ...p,
+      groupPosPts:groupPosPts[p.name]||0,
+      ko16Pts:ko16Pts[p.name]||0
+    }));
+
+    res.json({ok:true,date:primaryDate,jornadaMatches,summary:summaryEnriched,premios,availableDates:allDates,lastUpdated:new Date().toISOString()});
   } catch(e){res.status(500).json({ok:false,error:e.message});}
 });
 
