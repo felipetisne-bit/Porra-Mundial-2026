@@ -198,43 +198,23 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
   }
 
   // ── 4. KO team classifiers ─────────────────────────────────────────
-  // Build set of confirmed classified teams per round
-  // Logic: if predicted team is among confirmed classified teams for that round, give points
-  // Points given only ONCE per team per player per round (no double counting)
-  const classifiedByRound = {};
   for (const m of data.ko_team) {
     const espn = espnResults[m.name];
+    // actualTeam: from auto-resolved ko_team result, ESPN FT result, or direct team field
     let actualTeam = (espn && espn.team) ? espn.team : null;
     if (!actualTeam && espn && espn.status === 'FT') {
       actualTeam = espn.homeScore > espn.awayScore ? espn.homeTeam : espn.awayTeam;
     }
-    if (!actualTeam && espn && espn.status === 'CLASSIFIED') actualTeam = espn.team;
+    if (!actualTeam && espn && espn.status === 'CLASSIFIED') {
+      actualTeam = espn.team;
+    }
     if (!actualTeam) continue;
-    const round = m.name.replace(/-[0-9]+$/,'');
-    if (!classifiedByRound[round]) classifiedByRound[round] = new Set();
-    const tn = norm(actualTeam);
-    classifiedByRound[round].add(tn);
-    const en = ESP_TO_EN[tn];
-    if (en) classifiedByRound[round].add(en);
-  }
-
-  for (const m of data.ko_team) {
-    const round = m.name.replace(/-[0-9]+$/,'');
-    const allClassified = classifiedByRound[round] || new Set();
-    if (allClassified.size === 0) continue;
 
     for (const [pName, pd] of Object.entries(m.predictions)) {
       if (!totals[pName]) continue;
-      const predNorm = norm(pd.pred||'');
-      const translatedPred = ESP_TO_EN[predNorm] || predNorm;
-      const isClassified = allClassified.has(translatedPred) || allClassified.has(predNorm);
-      const trackKey = `${pName}_${round}_${translatedPred||predNorm}`;
-      if (!totals[pName]._tracked) totals[pName]._tracked = new Set();
-      if (isClassified && !totals[pName]._tracked.has(trackKey)) {
-        totals[pName]._tracked.add(trackKey);
-        totals[pName].total += m.max_pts;
-        totals[pName].bySection.ko_equipos += m.max_pts;
-      }
+      const pts = calcTeamPred(pd.pred, actualTeam, m.max_pts) || 0;
+      totals[pName].total += pts;
+      totals[pName].bySection.ko_equipos += pts;
     }
   }
 
