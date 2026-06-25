@@ -195,7 +195,7 @@ function calcGroupStandings(matches) {
 function getClosedGroups(porraData, todayStr) {
   const closedGroups = new Set();
   for (const m of porraData.group_pos) {
-    if (m.date && m.date <= todayStr) {
+    if (m.date && m.date < todayStr) {  // < estricto: grupos del día actual se resuelven al día siguiente
       const match = m.result.match(/^[1-4]([A-L])$/);
       if (match) closedGroups.add(match[1]);
     }
