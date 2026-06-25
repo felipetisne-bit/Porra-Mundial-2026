@@ -198,7 +198,9 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
   }
 
   // ── 4. KO team classifiers ─────────────────────────────────────────
-  // Build set of ALL classified teams per round for "any team in round" check
+  // Build set of confirmed classified teams per round
+  // Logic: if predicted team is among confirmed classified teams for that round, give points
+  // Points given only ONCE per team per player per round (no double counting)
   const classifiedByRound = {};
   for (const m of data.ko_team) {
     const espn = espnResults[m.name];
@@ -208,33 +210,24 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
     }
     if (!actualTeam && espn && espn.status === 'CLASSIFIED') actualTeam = espn.team;
     if (!actualTeam) continue;
-    // Only count 1st and 2nd place slots - skip 3rd place until all 12 groups done
-    if ((m.result||'').match(/^3[A-L]/)) continue;
-    // Determine round from name
-    const round = m.name.replace(/-\d+$/,''); // e.g. "Dieciseisavofinalista"
+    const round = m.name.replace(/-[0-9]+$/,'');
     if (!classifiedByRound[round]) classifiedByRound[round] = new Set();
-    classifiedByRound[round].add(actualTeam.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,''));
+    const tn = norm(actualTeam);
+    classifiedByRound[round].add(tn);
+    const en = ESP_TO_EN[tn];
+    if (en) classifiedByRound[round].add(en);
   }
 
   for (const m of data.ko_team) {
-    const espn = espnResults[m.name];
-    let actualTeam = (espn && espn.team) ? espn.team : null;
-    if (!actualTeam && espn && espn.status === 'FT') {
-      actualTeam = espn.homeScore > espn.awayScore ? espn.homeTeam : espn.awayTeam;
-    }
-    if (!actualTeam && espn && espn.status === 'CLASSIFIED') actualTeam = espn.team;
-    if (!actualTeam) continue;
-
-    const round = m.name.replace(/-\d+$/,'');
+    const round = m.name.replace(/-[0-9]+$/,'');
     const allClassified = classifiedByRound[round] || new Set();
+    if (allClassified.size === 0) continue;
 
     for (const [pName, pd] of Object.entries(m.predictions)) {
       if (!totals[pName]) continue;
-      // Check if predicted team matches this specific slot OR is among all classified teams
       const predNorm = norm(pd.pred||'');
       const translatedPred = ESP_TO_EN[predNorm] || predNorm;
       const isClassified = allClassified.has(translatedPred) || allClassified.has(predNorm);
-      // Only give points once per team per round (track in player totals)
       const trackKey = `${pName}_${round}_${translatedPred||predNorm}`;
       if (!totals[pName]._tracked) totals[pName]._tracked = new Set();
       if (isClassified && !totals[pName]._tracked.has(trackKey)) {
