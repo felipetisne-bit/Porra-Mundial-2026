@@ -514,21 +514,25 @@ function renderJornadaTable(summary, matches, date) {
     document.getElementById('jornada-table').innerHTML=html;
     return;
   }
-  html+=`<table class="jornada-table"><thead><tr><th>#</th><th>Participante</th><th>Pts Total</th><th>Pts Hoy</th><th>Var.</th><th>Estado</th></tr></thead><tbody>`;
+  const hasGroupPos=summary.some(p=>p.groupPosPts>0);
+  const hasKo16=summary.some(p=>p.ko16Pts>0);
+  html+=`<table class="jornada-table"><thead><tr><th>#</th><th>Participante</th><th>Pts Total</th><th>Partidos</th>${hasGroupPos?'<th>Pos.Grupo</th>':''}${hasKo16?'<th>16avos</th>':''}<th>Pts Hoy</th><th>Var.</th></tr></thead><tbody>`;
   summary.forEach((p,i)=>{
     const varHtml=p.variation>0?`<span class="var-up">▲ +${p.variation}</span>`:`<span class="var-zero">—</span>`;
-    // Find best prediction label for this player today
     let bestTag='';
     matches.forEach(m=>{
       const pr=m.playerResults?.find(r=>r.name===p.name);
       if(pr&&pr.pts===m.max_pts&&m.max_pts>0) bestTag+=`<span class="exact-tag">🎯 ${m.name.split('-')[0]}</span>`;
     });
     const rk=p.jornadaPos===1?'rk r1':p.jornadaPos<=3?'rk r2':'rk';
+    const partPts=p.todayPts-(p.groupPosPts||0)-(p.ko16Pts||0);
     html+=`<tr><td class="${rk}">${p.jornadaPos}</td><td><strong>${p.name}</strong>${bestTag}</td>
       <td><span class="bpt" style="background:rgba(201,162,39,.15);color:#956d00">${p.total}</span></td>
-      <td style="font-weight:800;color:${p.todayPts>0?'var(--v)':'var(--mu)'}">${p.todayPts}</td>
-      <td>${varHtml}</td>
-      <td>${p.jornadaPos===1?'🥇 Líder jornada':''}</td></tr>`;
+      <td style="color:${partPts>0?'var(--v)':'var(--mu)'}">${partPts>0?'+'+partPts:partPts||'—'}</td>
+      ${hasGroupPos?`<td style="color:${p.groupPosPts>0?'#5b8dd9':'var(--mu)'};font-weight:${p.groupPosPts>0?700:400}">${p.groupPosPts>0?'+'+p.groupPosPts:'—'}</td>`:''}
+      ${hasKo16?`<td style="color:${p.ko16Pts>0?'#e07b2a':'var(--mu)'};font-weight:${p.ko16Pts>0?700:400}">${p.ko16Pts>0?'+'+p.ko16Pts:'—'}</td>`:''}
+      <td style="font-weight:800;color:${p.todayPts>0?'var(--v)':'var(--mu)'}">${p.todayPts||'—'}</td>
+      <td>${varHtml}</td></tr>`;
   });
   html+='</tbody></table>';
   document.getElementById('jornada-table').innerHTML=html;
