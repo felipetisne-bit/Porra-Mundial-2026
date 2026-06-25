@@ -285,9 +285,16 @@ async function getResults() {
   Object.assign(results, groupPosResults);
   
   // Resolve all ko_team codes automatically
+  // Only resolve 3rd-place slots when ALL 12 groups are complete
+  const completedGroupCount = Object.values(calcGroupStandings(wc.matches))
+    .filter(teams => teams.reduce((s,t)=>s+t.played,0)/2 >= 6).length;
+  const all12Done = completedGroupCount === 12;
+
   for (const m of PORRA.ko_team) {
     const code = m.result;
     if (!code || code === '-') continue;
+    // Skip best-3rd slots until all 12 groups close
+    if (!all12Done && code.match(/^3[A-L]{2,}/)) continue;
     const team = resolveKOCode(code, results, groupPosResults);
     if (team) results[m.name] = {team, status:'CLASSIFIED'};
   }
