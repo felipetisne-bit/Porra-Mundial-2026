@@ -198,7 +198,12 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
   }
 
   // ── 4. KO team classifiers ─────────────────────────────────────────
-  // Deduplicate: each team counts only ONCE per player per round
+  // Lógica Excel: si el equipo que predijiste clasificó a esa ronda
+  // (en CUALQUIER slot), ganas los puntos. No importa el slot exacto.
+  // Solo se cuenta una vez por equipo por ronda por jugador.
+
+  // Primero construir el set de clasificados por ronda
+  const classifiedByRound = {};
   for (const m of data.ko_team) {
     const espn = espnResults[m.name];
     let actualTeam = (espn && espn.team) ? espn.team : null;
@@ -209,22 +214,33 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
       actualTeam = espn.team;
     }
     if (!actualTeam) continue;
-
-    // Get round name e.g. "Dieciseisavofinalista"
     const round = m.name.replace(/-[0-9]+$/, '');
+    if (!classifiedByRound[round]) classifiedByRound[round] = new Set();
+    classifiedByRound[round].add(actualTeam);
+  }
+
+  // Ahora puntuar: por cada predicción, ver si el equipo clasificó en esa ronda
+  for (const m of data.ko_team) {
+    const round = m.name.replace(/-[0-9]+$/, '');
+    const classified = classifiedByRound[round];
+    if (!classified || classified.size === 0) continue;
 
     for (const [pName, pd] of Object.entries(m.predictions)) {
       if (!totals[pName]) continue;
-      const pts = calcTeamPred(pd.pred, actualTeam, m.max_pts) || 0;
-      if (!pts) continue;
-      // Only count once per predicted team per round per player
+      // Buscar si el equipo predicho está entre los clasificados de esta ronda
+      let hit = false;
+      for (const actualTeam of classified) {
+        if (calcTeamPred(pd.pred, actualTeam, m.max_pts) > 0) { hit = true; break; }
+      }
+      if (!hit) continue;
+      // Solo contar una vez por equipo predicho por ronda por jugador
       if (!totals[pName]._tracked) totals[pName]._tracked = new Set();
       const predNorm = norm(pd.pred||'');
       const trackKey = `${round}_${ESP_TO_EN[predNorm]||predNorm}`;
       if (totals[pName]._tracked.has(trackKey)) continue;
       totals[pName]._tracked.add(trackKey);
-      totals[pName].total += pts;
-      totals[pName].bySection.ko_equipos += pts;
+      totals[pName].total += m.max_pts;
+      totals[pName].bySection.ko_equipos += m.max_pts;
     }
   }
 
