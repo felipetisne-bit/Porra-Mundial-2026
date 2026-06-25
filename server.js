@@ -530,10 +530,13 @@ app.get('/api/jornada', async(req,res)=>{
     }
 
     // Enriquecer summary con pts de pos_grupos y ko_16 de hoy
+    // todayPts = partidos + posgrupo + 16avos
     const summaryEnriched=summary.map(p=>({
       ...p,
+      matchPts:p.todayPts||0,
       groupPosPts:groupPosPts[p.name]||0,
-      ko16Pts:ko16Pts[p.name]||0
+      ko16Pts:ko16Pts[p.name]||0,
+      todayPts:(p.todayPts||0)+(groupPosPts[p.name]||0)+(ko16Pts[p.name]||0)
     }));
 
     res.json({ok:true,date:primaryDate,jornadaMatches,summary:summaryEnriched,premios,availableDates:allDates,lastUpdated:new Date().toISOString()});
