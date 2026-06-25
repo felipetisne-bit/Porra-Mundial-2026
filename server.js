@@ -135,6 +135,8 @@ async function refreshLive() {
           liveMatches.push({espnHome:home,espnAway:away,homeScore:hScore,awayScore:aScore,status:isLive?'LIVE':'FT',date:getSantiagoDate(match.utcDate),excelName});
         }
       }
+      // Segundo request: partidos de hoy para scores individuales (group_score)
+      // SOLO se usa para calcular puntos por partido, nunca para standings de grupo
       const today = getTodayStr();
       const data2 = await fetchJSON(`https://api.football-data.org/v4/competitions/2000/matches?dateFrom=${today}&dateTo=${today}`, {
         headers:{'X-Auth-Token': FOOTBALL_API_KEY}
@@ -191,14 +193,21 @@ function calcGroupStandings(matches) {
 }
 
 
-// ─── Helper: grupos cerrados según fechas del porra.json ──────────────
-function getClosedGroups(porraData, todayStr) {
+// ─── Helper: grupos cerrados según partidos reales jugados ────────────
+// Un grupo está cerrado cuando openfootball tiene sus 6 partidos con resultado
+function getClosedGroups(matches) {
+  const groupPlayed = {};
+  for (const m of matches) {
+    if (!m.group || !m.group.startsWith('Group')) continue;
+    const g = m.group.replace('Group ', '');
+    const hasScore = (m.score?.ft?.length === 2) ||
+                     (m.homeScore != null && m.awayScore != null && m.status === 'FT');
+    if (!groupPlayed[g]) groupPlayed[g] = 0;
+    if (hasScore) groupPlayed[g]++;
+  }
   const closedGroups = new Set();
-  for (const m of porraData.group_pos) {
-    if (m.date && m.date < todayStr) {  // < estricto: grupos del día actual se resuelven al día siguiente
-      const match = m.result.match(/^[1-4]([A-L])$/);
-      if (match) closedGroups.add(match[1]);
-    }
+  for (const [g, count] of Object.entries(groupPlayed)) {
+    if (count >= 6) closedGroups.add(g);
   }
   return closedGroups;
 }
@@ -293,13 +302,15 @@ function resolveKOCode(code, allResults, groupPos) {
 async function getResults() {
   const [wc, live] = await Promise.all([refreshWC(), refreshLive()]);
   const results = {...wc.results};
+  // Mezclar liveResults de football-data/ESPN en results
+  // SOLO para scores de partidos individuales (group_score)
+  // Las posiciones de grupo y grupos cerrados usan SOLO wc.matches (openfootball)
   for(const [k,v] of Object.entries(live.liveResults)){
-    if(v.status==='LIVE'||!results[k]) results[k]=v;
+    if(v.status==='LIVE' || v.status==='FT') results[k]=v;
   }
 
   // Determinar grupos cerrados según fechas del porra.json (más preciso que contar partidos)
-  const todayForGroups = getTodayStr();
-  const closedGroups = getClosedGroups(PORRA, todayForGroups);
+  const closedGroups = getClosedGroups(wc.matches);
   const completedGroupCount = closedGroups.size;
   const all12Done = completedGroupCount === 12;
 
