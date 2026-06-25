@@ -525,7 +525,7 @@ function renderJornadaTable(summary, matches, date) {
       if(pr&&pr.pts===m.max_pts&&m.max_pts>0) bestTag+=`<span class="exact-tag">🎯 ${m.name.split('-')[0]}</span>`;
     });
     const rk=p.jornadaPos===1?'rk r1':p.jornadaPos<=3?'rk r2':'rk';
-    const partPts=p.todayPts-(p.groupPosPts||0)-(p.ko16Pts||0);
+    const partPts=p.matchPts||0;
     html+=`<tr><td class="${rk}">${p.jornadaPos}</td><td><strong>${p.name}</strong>${bestTag}</td>
       <td><span class="bpt" style="background:rgba(201,162,39,.15);color:#956d00">${p.total}</span></td>
       <td style="color:${partPts>0?'var(--v)':'var(--mu)'}">${partPts>0?'+'+partPts:partPts||'—'}</td>
