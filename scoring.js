@@ -198,9 +198,9 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
   }
 
   // ── 4. KO team classifiers ─────────────────────────────────────────
+  // Deduplicate: each team counts only ONCE per player per round
   for (const m of data.ko_team) {
     const espn = espnResults[m.name];
-    // actualTeam: from auto-resolved ko_team result, ESPN FT result, or direct team field
     let actualTeam = (espn && espn.team) ? espn.team : null;
     if (!actualTeam && espn && espn.status === 'FT') {
       actualTeam = espn.homeScore > espn.awayScore ? espn.homeTeam : espn.awayTeam;
@@ -210,9 +210,19 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
     }
     if (!actualTeam) continue;
 
+    // Get round name e.g. "Dieciseisavofinalista"
+    const round = m.name.replace(/-[0-9]+$/, '');
+
     for (const [pName, pd] of Object.entries(m.predictions)) {
       if (!totals[pName]) continue;
       const pts = calcTeamPred(pd.pred, actualTeam, m.max_pts) || 0;
+      if (!pts) continue;
+      // Only count once per predicted team per round per player
+      if (!totals[pName]._tracked) totals[pName]._tracked = new Set();
+      const predNorm = norm(pd.pred||'');
+      const trackKey = `${round}_${ESP_TO_EN[predNorm]||predNorm}`;
+      if (totals[pName]._tracked.has(trackKey)) continue;
+      totals[pName]._tracked.add(trackKey);
       totals[pName].total += pts;
       totals[pName].bySection.ko_equipos += pts;
     }
