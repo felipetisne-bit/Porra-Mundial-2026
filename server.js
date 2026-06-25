@@ -220,21 +220,17 @@ function getGroupPositionResults(matches) {
     if (teams[3]) results[`4${g}`] = teams[3].name;
   }
 
-  // Determine best 3rd place teams ONLY when ALL 12 groups are complete
-  const completedGroups = Object.entries(standings).filter(([g, teams]) => {
-    const total = teams.reduce((s,t)=>s+t.played,0)/2;
-    return total >= 6 && teams[2];
-  });
+  // Determine best 3rd place teams from all groups with data
+  // Use current standings as projection (same as Excel behavior)
+  const groupsWithData = Object.entries(standings).filter(([g, teams]) => teams[2]);
+  const thirdPlaces = groupsWithData
+    .map(([g, teams]) => ({group:g, ...teams[2]}))
+    .sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
   
-  if (completedGroups.length === 12) {
-    // All groups done — pick top 4 third place teams
-    const thirdPlaces = completedGroups
-      .map(([g, teams]) => ({group:g, ...teams[2]}))
-      .sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
-    thirdPlaces.forEach((t,i) => {
-      if (i < 4) results[`3${t.group}_CLASIFICA`] = t.name;
-    });
-  }
+  // Mark top 4 projected 3rd place teams
+  thirdPlaces.forEach((t,i) => {
+    if (i < 4) results[`3${t.group}_CLASIFICA`] = t.name;
+  });
 
   return results;
 }
@@ -387,7 +383,7 @@ async function generateGPTAnalysis(type, context) {
   try {
     const prompts = {
       impacto:`Eres el analista de una porra de fútbol entre amigos chilenos. Con estos datos genera un análisis de impacto en español informal y entretenido (máx 300 palabras). Incluye: qué partidos generaron más movimiento, grupos de puntos, caída del día, partido bonus más decisivo. Datos: ${JSON.stringify(context)}`,
-      cronica:`Eres el cronista de una porra de fútbol entre amigos chilenos. Escribe una crónica narrativa, emotiva e informal en español (máx 350 palabras). Menciona nombres reales, drama, subidas y caídas. Datos: ${JSON.stringify(context)}`
+      cronica:`Eres el cronista de una porra de fútbol entre amigos chilenos. Escribe una crónica narrativa en español (máx 400 palabras) con el espíritu de Osvaldo Soriano y Eduardo Galeano: mezcla fútbol con nostalgia, humor porteño y pequeñas piezas literarias sobre el alma del juego. Como Soriano, teje lo cotidiano con lo épico, los nombres propios con la melancolía de lo que pudo ser. Como Galeano, convierte cada gol en una historia humana, cada pronóstico fallido en una metáfora de la vida. Habla de los participantes por su nombre, con afecto y picardía chilena. No pierdas el hilo de la porra: menciona puntajes, subidas, caídas y el drama real de la jornada. Datos: ${JSON.stringify(context)}`
     };
     const data = await fetchJSON('https://api.anthropic.com/v1/messages', {
       method:'POST',
