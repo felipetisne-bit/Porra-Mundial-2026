@@ -434,7 +434,7 @@ function renderTbl(pl) {
     const isLive=todayMatches.some(m=>m.status==='LIVE');
     const rowStyle=isLive?'transition:background .5s;':'';
     html+=`<tr style="${rowStyle}"><td class="${rk}">${p.pos}${arrow}</td><td><strong>${p.name}</strong></td>
-      <td><span class="bpt">${p.total}</span></td><td>${s.grupos||0}</td><td>${ko}</td><td>${premios}</td><td>${zone}</td></tr>`;
+      <td><span class="bpt">${p.total}</span></td><td>${(s.grupos||0)+(s.pos_grupos||0)}</td><td>${ko}</td><td>${premios}</td><td>${zone}</td></tr>`;
   });
   document.getElementById('tbody').innerHTML=html||'<tr><td colspan="7" style="text-align:center;color:var(--mu)">Sin datos</td></tr>';
 }
