@@ -114,7 +114,17 @@ function calcKOScore(pred, espnResult, maxPts, bonus) {
 
 function calcTeamPred(pred, actualTeam, maxPts) {
   if (!actualTeam || actualTeam === '-' || actualTeam === 'PD') return null;
-  return namesMatch(pred, actualTeam) ? maxPts : 0;
+  // Translate Spanish prediction to English before comparing
+  const predNorm = norm(pred || '');
+  const translatedPred = ESP_TO_EN[predNorm] || predNorm;
+  const actualNorm = norm(actualTeam);
+  const translatedActual = ESP_TO_EN[actualNorm] || actualNorm;
+  // Compare both directions: pred→EN vs actual, and pred vs actual→EN
+  if (namesMatch(translatedPred, actualNorm)) return maxPts;
+  if (namesMatch(predNorm, translatedActual)) return maxPts;
+  if (namesMatch(translatedPred, translatedActual)) return maxPts;
+  if (namesMatch(pred, actualTeam)) return maxPts;
+  return 0;
 }
 
 function calcPlayerAward(pred, actualPlayer, maxPts) {
