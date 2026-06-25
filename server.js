@@ -172,12 +172,16 @@ function calcGroupStandings(matches) {
   const groups = {};
   for (const m of matches) {
     if (!m.group || !m.group.startsWith('Group')) continue;
-    const score = m.score && m.score.ft;
-    if (!score) continue; // match not played yet
+    // Support both openfootball format (team1/team2/score.ft) and transformed format (espnHome/espnAway/homeScore/awayScore)
+    const t1 = m.team1 || m.espnHome;
+    const t2 = m.team2 || m.espnAway;
+    const g1raw = m.score?.ft?.[0] ?? m.homeScore;
+    const g2raw = m.score?.ft?.[1] ?? m.awayScore;
+    if (g1raw == null || g2raw == null || !t1 || !t2) continue;
+    if (m.status === 'NS') continue;
     const g = m.group.replace('Group ','');
     if (!groups[g]) groups[g] = {};
-    const t1 = m.team1, t2 = m.team2;
-    const [g1, g2] = score;
+    const [g1, g2] = [g1raw, g2raw];
     for (const t of [t1, t2]) {
       if (!groups[g][t]) groups[g][t] = {pts:0, gf:0, ga:0, gd:0, played:0};
     }
