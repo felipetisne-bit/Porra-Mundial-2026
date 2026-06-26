@@ -423,12 +423,12 @@ async function generateGPTAnalysis(type, context) {
   try {
     const prompts = {
       impacto:`Eres el analista de una porra de fútbol entre amigos chilenos. Con estos datos genera un análisis de impacto en español informal y entretenido (máx 300 palabras). Incluye: qué partidos generaron más movimiento, grupos de puntos, caída del día, partido bonus más decisivo. Datos: ${JSON.stringify(context)}`,
-      cronica:`Eres el cronista de una porra de fútbol entre amigos chilenos. Escribe una crónica narrativa en español (máx 400 palabras) con el espíritu de Osvaldo Soriano y Eduardo Galeano: mezcla fútbol con nostalgia, humor porteño y pequeñas piezas literarias sobre el alma del juego. Como Soriano, teje lo cotidiano con lo épico, los nombres propios con la melancolía de lo que pudo ser. Como Galeano, convierte cada gol en una historia humana, cada pronóstico fallido en una metáfora de la vida. Habla de los participantes por su nombre, con afecto y picardía chilena. No pierdas el hilo de la porra: menciona puntajes, subidas, caídas y el drama real de la jornada. Datos: ${JSON.stringify(context)}`
+      cronica:`Eres el cronista de una porra de fútbol entre amigos chilenos. Escribe una crónica narrativa en español (máx 600 palabras) con el espíritu de Osvaldo Soriano y Eduardo Galeano: mezcla fútbol con nostalgia, humor porteño y pequeñas piezas literarias sobre el alma del juego. Como Soriano, teje lo cotidiano con lo épico, los nombres propios con la melancolía de lo que pudo ser. Como Galeano, convierte cada gol en una historia humana, cada pronóstico fallido en una metáfora de la vida. Habla de los participantes por su nombre, con afecto y picardía chilena. No pierdas el hilo de la porra: menciona puntajes, subidas, caídas y el drama real de la jornada. Datos: ${JSON.stringify(context)}`
     };
     const data = await fetchJSON('https://api.anthropic.com/v1/messages', {
       method:'POST',
       headers:{'x-api-key':ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01','Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:700,messages:[{role:'user',content:prompts[type]}]}),
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1100,messages:[{role:'user',content:prompts[type]}]}),
       timeout:30000
     });
     return data.content?.[0]?.text || '';
@@ -530,14 +530,14 @@ app.get('/api/jornada', async(req,res)=>{
     }
 
     // Enriquecer summary con pts de pos_grupos y ko_16 de hoy
-    // todayPts = partidos + posgrupo + 16avos
-    const summaryEnriched=summary.map(p=>({
-      ...p,
-      matchPts:p.todayPts||0,
-      groupPosPts:groupPosPts[p.name]||0,
-      ko16Pts:ko16Pts[p.name]||0,
-      todayPts:(p.todayPts||0)+(groupPosPts[p.name]||0)+(ko16Pts[p.name]||0)
-    }));
+    // todayPts y variation = partidos + posgrupo + 16avos
+    const summaryEnriched=summary.map(p=>{
+      const matchPts=p.todayPts||0;
+      const gpp=groupPosPts[p.name]||0;
+      const k16=ko16Pts[p.name]||0;
+      const totalHoy=matchPts+gpp+k16;
+      return {...p, matchPts, groupPosPts:gpp, ko16Pts:k16, todayPts:totalHoy, variation:totalHoy};
+    });
 
     res.json({ok:true,date:primaryDate,jornadaMatches,summary:summaryEnriched,premios,availableDates:allDates,lastUpdated:new Date().toISOString()});
   } catch(e){res.status(500).json({ok:false,error:e.message});}
