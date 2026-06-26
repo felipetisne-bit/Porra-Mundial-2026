@@ -33,31 +33,12 @@ function norm(s) {
     .replace(/[^a-z0-9]/g, '');
 }
 
-// Diccionario completo ESP→EN para los 48 equipos del Mundial 2026
-const ESP_TO_EN = {
-  'alemania':'germany','arabiaasaudita':'saudiarabia','argelia':'algeria',
-  'argentina':'argentina','australia':'australia','austria':'austria',
-  'bosniaherzegovina':'bosniaherzegovina','brasil':'brazil',
-  'belgica':'belgium','caboverde':'capeverde','canada':'canada',
-  'catar':'qatar','colombia':'colombia','coreadelsur':'southkorea',
-  'costademarfil':'ivorycoast','croacia':'croatia','curazao':'curacao',
-  'ecuador':'ecuador','egipto':'egypt','escocia':'scotland',
-  'espana':'spain','estadosunidos':'usa','francia':'france',
-  'ghana':'ghana','haiti':'haiti','inglaterra':'england',
-  'irak':'iraq','iran':'iran','japon':'japan','jordania':'jordan',
-  'marruecos':'morocco','mexico':'mexico','noruega':'norway',
-  'nuevazelanda':'newzealand','panama':'panama','paraguay':'paraguay',
-  'paisesbajos':'netherlands','portugal':'portugal','rdcongo':'drcongo',
-  'republicacheca':'czechrepublic','senegal':'senegal','sudafrica':'southafrica',
-  'suecia':'sweden','suiza':'switzerland','turquia':'turkey',
-  'tunez':'tunisia','uruguay':'uruguay','uzbekistan':'uzbekistan',
-};
-
 /** Compara dos nombres de jugador/equipo con tolerancia */
 function namesMatch(a, b) {
   if (!a || !b) return false;
   const na = norm(a), nb = norm(b);
   if (na === nb) return true;
+  // Usar ESP_TO_EN que está definido más abajo en el archivo
   const ta = ESP_TO_EN[na] || na;
   const tb = ESP_TO_EN[nb] || nb;
   if (ta === tb) return true;
