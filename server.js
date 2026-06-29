@@ -477,12 +477,10 @@ function getJornadaMatches(dateStr, results) {
     if (isKO && r && r.homeTeam && r.awayTeam) {
       displayName = `${r.homeTeam} vs ${r.awayTeam}`;
     } else if (isKO) {
-      // Resolver códigos a nombres
+      // Resolver códigos a nombres usando resolveSlotToTeam
       const parts = m.name.split('-');
-      const t1 = results[parts[0]];
-      const t2 = results[parts.slice(1).join('-')];
-      const n1 = t1 ? (typeof t1==='string'?t1:t1.team||parts[0]) : parts[0];
-      const n2 = t2 ? (typeof t2==='string'?t2:t2.team||parts.slice(1).join('-')) : parts.slice(1).join('-');
+      const n1 = resolveSlotToTeam(parts[0], results) || parts[0];
+      const n2 = resolveSlotToTeam(parts.slice(1).join('-'), results) || parts.slice(1).join('-');
       displayName = `${n1} vs ${n2}`;
     }
     const playerResults=Object.entries(m.predictions).map(([name,pd])=>({
