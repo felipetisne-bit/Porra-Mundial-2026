@@ -735,11 +735,33 @@ app.get('/api/pronosticos', async(req,res)=>{
           pts:calcKOScore(pred,espnResult,m.max_pts,m.bonus)||0
         })).sort((a,b)=>(b.pts||0)-(a.pts||0));
       } else if(isKO){
-        // Partido KO pendiente: mostrar solo quienes tienen esa llave predicha
-        // Usar el slot actual del porra como referencia
-        players=Object.entries(m.predictions).map(([name,pd])=>({
-          name,pred:pd.pred,pts:null
-        })).filter(p=>p.pred&&p.pred!=='-'&&p.pred.includes('·'));
+        // Partido KO pendiente: filtrar solo quienes tienen exactamente esa llave
+        // Resolver los equipos del slot actual
+        const slotParts = (m.slotName||m.name).split('-');
+        const st1 = resolveSlotToTeam(slotParts[0], results);
+        const st2 = resolveSlotToTeam(slotParts.slice(1).join('-'), results);
+        const snt1 = st1 ? norm(st1) : null;
+        const snt2 = st2 ? norm(st2) : null;
+        const allKOPredsPending = {};
+        for(const ko of PORRA.ko_score){
+          for(const [pname,pd] of Object.entries(ko.predictions)){
+            if(!pd.pred||!pd.pred.includes('·')) continue;
+            const teams=pd.pred.split('·')[0];
+            const parts=teams.split('-');
+            if(parts.length<2) continue;
+            const pt1=norm(ESP_TO_EN_SERVER[norm(parts[0].trim())]||norm(parts[0].trim()));
+            const pt2=norm(ESP_TO_EN_SERVER[norm(parts.slice(1).join('-').trim())]||norm(parts.slice(1).join('-').trim()));
+            // Si tenemos equipos resueltos, filtrar por ellos
+            if(snt1&&snt2){
+              if((pt1===snt1&&pt2===snt2)||(pt1===snt2&&pt2===snt1)){
+                if(!allKOPredsPending[pname]) allKOPredsPending[pname]=pd.pred;
+              }
+            }
+          }
+        }
+        players=Object.entries(allKOPredsPending).map(([name,pred])=>({
+          name,pred,pts:null
+        }));
       } else {
         players=Object.entries(m.predictions).map(([name,pd])=>({
           name,pred:pd.pred,
