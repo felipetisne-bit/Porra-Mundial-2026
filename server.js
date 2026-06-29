@@ -104,8 +104,9 @@ async function refreshWC() {
       if(hasScore) {
         // Guardar siempre por nombre de equipos para búsqueda directa
         const key = `${m.team1}-${m.team2}`;
-        results[key]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2};
-        if(excelName) results[excelName]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2};
+        const isKORound = m.round && !m.group; // partidos KO no tienen group
+        results[key]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2,isKO:isKORound};
+        if(excelName) results[excelName]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2,isKO:isKORound};
       }
       matches.push({
         espnHome:m.team1, espnAway:m.team2,
