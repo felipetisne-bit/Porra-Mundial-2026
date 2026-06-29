@@ -68,9 +68,14 @@ async function refreshWC() {
       const hasScore = m.score?.ft?.length===2;
       const hScore = hasScore ? m.score.ft[0] : null;
       const aScore = hasScore ? m.score.ft[1] : null;
-      const excelName = findExcelMatchForESPN(m.team1, m.team2, PORRA.group_score);
-      if(excelName && hasScore) {
-        results[excelName]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2};
+      // Buscar en group_score Y ko_score
+      const allPorraMatches = [...PORRA.group_score, ...PORRA.ko_score];
+      const excelName = findExcelMatchForESPN(m.team1, m.team2, allPorraMatches);
+      if(hasScore) {
+        // Guardar siempre por nombre de equipos para búsqueda directa
+        const key = `${m.team1}-${m.team2}`;
+        results[key]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2};
+        if(excelName) results[excelName]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2};
       }
       matches.push({
         espnHome:m.team1, espnAway:m.team2,
@@ -536,6 +541,31 @@ app.get('/api/jornada', async(req,res)=>{
       const espn=results[m.name];
       if(espn&&espn.status==='CLASSIFIED'&&espn.team) classified16.add(espn.team);
     }
+
+    // Octavofinalistas: equipos que ganaron partidos de 16avos HOY
+    const classified8Today=new Set();
+    for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Octavofinalista'))){
+      const espn=results[m.name];
+      if(espn&&espn.status==='CLASSIFIED'&&espn.team) classified8Today.add(espn.team);
+    }
+    const ko8Pts={};
+    if(classified8Today.size>0){
+      const tracked8={};
+      for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Octavofinalista'))){
+        for(const [pName,pd] of Object.entries(m.predictions)){
+          if(!tracked8[pName]) tracked8[pName]=new Set();
+          let hit=false;
+          for(const actual of classified8Today){
+            if((calcTeamPred(pd.pred,actual,m.max_pts)||0)>0){hit=true;break;}
+          }
+          if(!hit) continue;
+          const key='8_'+(pd.pred||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+          if(tracked8[pName].has(key)) continue;
+          tracked8[pName].add(key);
+          ko8Pts[pName]=(ko8Pts[pName]||0)+m.max_pts;
+        }
+      }
+    }
     // Solo contar los que clasificaron por grupos que cerraron HOY
     const groupsClosingToday=new Set();
     for(const m of PORRA.group_pos.filter(m=>dates.includes(m.date))){
@@ -583,8 +613,9 @@ app.get('/api/jornada', async(req,res)=>{
       const matchPts=p.todayPts||0;
       const gpp=groupPosPts[p.name]||0;
       const k16=ko16Pts[p.name]||0;
-      const totalHoy=matchPts+gpp+k16;
-      return {...p, matchPts, groupPosPts:gpp, ko16Pts:k16, todayPts:totalHoy, variation:totalHoy};
+      const k8=ko8Pts[p.name]||0;
+      const totalHoy=matchPts+gpp+k16+k8;
+      return {...p, matchPts, groupPosPts:gpp, ko16Pts:k16, ko8Pts:k8, todayPts:totalHoy, variation:totalHoy};
     });
 
     res.json({ok:true,date:primaryDate,jornadaMatches,summary:summaryEnriched,premios,availableDates:allDates,lastUpdated:new Date().toISOString()});
