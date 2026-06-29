@@ -552,8 +552,21 @@ async function generateGPTAnalysis(type, context) {
   if(!ANTHROPIC_API_KEY) return '⚠️ Configura ANTHROPIC_API_KEY en Railway Variables.';
   try {
     const prompts = {
-      impacto:`Eres el analista de una porra de fútbol entre amigos chilenos. Con estos datos genera un análisis de impacto en español informal y entretenido (máx 300 palabras). Incluye: qué partidos generaron más movimiento, grupos de puntos, caída del día, partido bonus más decisivo. Datos: ${JSON.stringify(context)}`,
-      cronica:`Eres el cronista de una porra de fútbol entre amigos chilenos. Escribe una crónica narrativa en español (máx 600 palabras) con el espíritu de Osvaldo Soriano y Eduardo Galeano: mezcla fútbol con nostalgia, humor porteño y pequeñas piezas literarias sobre el alma del juego. Como Soriano, teje lo cotidiano con lo épico, los nombres propios con la melancolía de lo que pudo ser. Como Galeano, convierte cada gol en una historia humana, cada pronóstico fallido en una metáfora de la vida. Habla de los participantes por su nombre, con afecto y picardía chilena. No pierdas el hilo de la porra: menciona puntajes, subidas, caídas y el drama real de la jornada. Datos: ${JSON.stringify(context)}`
+      impacto:`Eres el analista de una porra de fútbol entre amigos chilenos. Con estos datos genera un análisis de impacto en español informal y entretenido (máx 300 palabras). Incluye: qué partidos generaron más movimiento, grupos de puntos, caída del día, partido bonus más decisivo. IMPORTANTE: USA SOLO los resultados que aparecen en los datos. Si un partido dice "Pendiente", NO inventes resultado. Solo menciona resultados con status "FT".
+
+Datos: ${JSON.stringify(context)}`,
+      cronica:`Eres el cronista de una porra de fútbol entre amigos chilenos. Escribe una crónica narrativa en español (máx 600 palabras) con el espíritu de Osvaldo Soriano y Eduardo Galeano.
+
+REGLA CRÍTICA: SOLO menciona resultados de partidos que aparezcan en el campo "matches" con resultado real. NUNCA inventes marcadores ni resultados. Si un partido no tiene resultado en los datos, no lo menciones como finalizado.
+
+ESTRUCTURA OBLIGATORIA (en este orden):
+1. PRIMERO: El ranking de la jornada de hoy — quién sumó más puntos HOY (campo ptsHoy), menciona al ganador del día y los que más subieron. Usa los datos de rankingJornada.
+2. SEGUNDO: Resultados EXACTOS de los partidos del día — usa SOLO los marcadores del campo "matches.result". No cambies ni inventes scores.
+3. TERCERO: El ranking general actual — quién lidera la porra en total, quién sube y quién baja. Usa rankingGeneral.
+
+Estilo: mezcla fútbol con nostalgia, humor porteño y picardía chilena. Nombra a los participantes con afecto.
+
+Datos: ${JSON.stringify(context)}`
     };
     const data = await fetchJSON('https://api.anthropic.com/v1/messages', {
       method:'POST',
@@ -711,7 +724,34 @@ app.get('/api/analysis/:type', async(req,res)=>{
     const jornadaMatches=getJornadaMatches(dateStr,results);
     const summary=buildJornadaSummary(jornadaMatches,standings);
     const premios=buildPremiosFecha(jornadaMatches);
-    const context={date:dateStr,matches:jornadaMatches.map(m=>({name:m.name,result:m.result,bonus:m.bonus})),top5:standings.slice(0,5).map(p=>({name:p.name,total:p.total})),summary:summary.slice(0,10),premios};
+    // Enriquecer summary con pts de grupos, 16avos y octavos para la crónica
+    const groupPosPtsCron={}, ko16PtsCron={}, ko8PtsCron={};
+    const dates2=Array.isArray(dateStr)?dateStr:[dateStr];
+    for(const m of PORRA.group_pos.filter(m=>dates2.includes(m.date))){
+      const actualTeam=results[m.result]||null;
+      if(!actualTeam) continue;
+      for(const [pName,pd] of Object.entries(m.predictions)){
+        if(namesMatch(pd.pred,actualTeam)) groupPosPtsCron[pName]=(groupPosPtsCron[pName]||0)+m.max_pts;
+      }
+    }
+    const summaryEnrichedCron=summary.map(p=>{
+      const matchPts=p.todayPts||0;
+      const gpp=groupPosPtsCron[p.name]||0;
+      const totalHoy=matchPts+gpp;
+      return {...p,todayPts:totalHoy};
+    }).sort((a,b)=>b.todayPts-a.todayPts||b.total-a.total);
+    const context={
+      date:dateStr,
+      matches:jornadaMatches.map(m=>({
+        name:m.name,
+        result:m.result&&m.result!=='-'?m.result:'Pendiente',
+        status:m.liveStatus||'NS',
+        bonus:m.bonus
+      })),
+      rankingGeneral:standings.slice(0,5).map((p,i)=>({pos:i+1,name:p.name,total:p.total})),
+      rankingJornada:summaryEnrichedCron.slice(0,10).map((p,i)=>({pos:i+1,name:p.name,ptsHoy:p.todayPts,totalGeneral:p.total})),
+      premios
+    };
     const text=await generateGPTAnalysis(type,context);
     res.json({ok:true,text,date:dateStr});
   } catch(e){res.status(500).json({ok:false,error:e.message});}
@@ -787,6 +827,53 @@ app.get('/api/pronosticos', async(req,res)=>{
           pts:m.result&&m.result!=='-'?calcGroupScore(pd.pred,m.result,m.bonus):null
         })).sort((a,b)=>(b.pts||0)-(a.pts||0));
       }
+      // Para KO: calcular quiénes tienen cada equipo en octavos (cualquier slot)
+      let team1Players = [], team2Players = [];
+      if(isKO){
+        // Obtener equipos del partido — desde espnResult o desde displayName
+        let team1, team2;
+        if(espnResult && espnResult.homeTeam){
+          team1 = espnResult.homeTeam;
+          team2 = espnResult.awayTeam;
+        } else {
+          // displayName es "Brazil vs Japan" o "Germany vs Paraguay"
+          const vsParts = m.name.split(' vs ');
+          if(vsParts.length === 2){
+            team1 = vsParts[0].trim();
+            team2 = vsParts[1].trim();
+          }
+        }
+        // Determinar la ronda KO siguiente (para buscar en ko_team)
+        const nextRound = 'Octavofinalista';
+        const nextSlots = PORRA.ko_team.filter(m=>m.name.startsWith(nextRound));
+        console.log(`[TEAM_PLAYERS] team1=${team1} team2=${team2} nextSlots=${nextSlots.length}`);
+        if(team1){
+          const seen = new Set();
+          for(const slot of nextSlots){
+            for(const [pname,pd] of Object.entries(slot.predictions)){
+              if(seen.has(pname)) continue;
+              if((calcTeamPred(pd.pred,team1,slot.max_pts)||0)>0){
+                seen.add(pname);
+                team1Players.push(pname);
+              }
+            }
+          }
+          console.log(`[TEAM_PLAYERS] ${team1}: ${team1Players.length} jugadores`);
+        }
+        if(team2){
+          const seen = new Set();
+          for(const slot of nextSlots){
+            for(const [pname,pd] of Object.entries(slot.predictions)){
+              if(seen.has(pname)) continue;
+              if((calcTeamPred(pd.pred,team2,slot.max_pts)||0)>0){
+                seen.add(pname);
+                team2Players.push(pname);
+              }
+            }
+          }
+          console.log(`[TEAM_PLAYERS] ${team2}: ${team2Players.length} jugadores`);
+        }
+      }
       return {
         match:m.name,date:m.date,bonus:m.bonus,maxPts:m.max_pts,
         match_type:m.match_type||'group_score',
@@ -794,7 +881,8 @@ app.get('/api/pronosticos', async(req,res)=>{
           ? `${espnResult.homeTeam} ${espnResult.homeScore}-${espnResult.awayScore} ${espnResult.awayTeam}`
           : (m.result||'-'),
         status:m.liveStatus||'NS',
-        players
+        players,
+        team1Players, team2Players
       };
     });
     const dates=Array.isArray(dateStr)?dateStr:[dateStr];
