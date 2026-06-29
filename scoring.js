@@ -231,10 +231,9 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
   for (const [key, espn] of Object.entries(espnResults)) {
     if (!espn || espn.status !== 'FT') continue;
     if (!espn.homeTeam || !espn.awayTeam) continue;
-    // Solo partidos KO (no de grupos — grupos tienen group en wc.matches)
-    // Los KO están en espnResults con claves como "South Africa-Canada" etc.
-    // Filtrar: si la clave tiene formato "XY-XY" (código de grupo) ignorar
-    if (/^[1-4][A-L]-/.test(key) || /^3[A-L]{2,}/.test(key)) continue;
+    // Solo incluir partidos KO reales (marcados con isKO:true en server.js)
+    // Esto evita que resultados de grupos contaminen el scoring de KO
+    if (!espn.isKO) continue;
     const nt1 = norm(espn.homeTeam), nt2 = norm(espn.awayTeam);
     const sorted = [nt1, nt2].sort().join('_');
     realKOMatches[sorted] = { espn, key };
