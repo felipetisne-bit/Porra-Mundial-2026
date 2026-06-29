@@ -104,16 +104,23 @@ function calcKOScore(pred, espnResult, maxPts, bonus) {
 
   const homeOk = namesMatch(parsed.home, espnResult.homeTeam);
   const awayOk = namesMatch(parsed.away, espnResult.awayTeam);
+  // También evaluar orden invertido (predijo visita-local)
+  const homeOkInv = namesMatch(parsed.home, espnResult.awayTeam);
+  const awayOkInv = namesMatch(parsed.away, espnResult.homeTeam);
 
   let pts = 0;
   if (homeOk && awayOk) {
-    // Teams correct → get score points
+    // Orden correcto → comparar resultado directo
     const resultFmt = toResultFmt(espnResult.homeScore, espnResult.awayScore);
     pts = calcScorePoints(parsed.scoreStr, resultFmt, bonus);
-  } else if (homeOk || awayOk) {
-    // One team correct (possible partial credit based on Excel rules)
-    // In this system partial = 0 for teams, only full match counts
-    pts = 0;
+  } else if (homeOkInv && awayOkInv) {
+    // Orden invertido → invertir resultado para comparar
+    // Si predijo Japan-Brazil 1|2-1, pero el partido es Brazil-Japan 1|1-2
+    // el signo se invierte: 1→2, 2→1, X→X
+    const invertSign = s => s === '1' ? '2' : s === '2' ? '1' : 'X';
+    const resultFmt = toResultFmt(espnResult.awayScore, espnResult.homeScore);
+    const predInverted = `${invertSign(parsed.scoreStr.split('|')[0])}|${parsed.scoreStr.split('|')[1].split('-').reverse().join('-')}`;
+    pts = calcScorePoints(predInverted, resultFmt, bonus);
   }
   return pts;
 }
@@ -191,13 +198,55 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
   }
 
   // ── 3. KO score matches ────────────────────────────────────────────
-  for (const m of data.ko_score) {
-    const espn = espnResults[m.name]; // keyed by code like "2A-2B"
-    if (!espn || espn.status !== 'FT') continue;
+  // Lógica: da igual en qué slot esté el partido — si la predicción del jugador
+  // coincide con UN partido real que se jugó (mismos equipos, cualquier orden),
+  // se puntúa. Cada predicción exacta solo cuenta una vez por jugador.
 
+  // Construir índice de partidos reales KO por equipos (para búsqueda rápida)
+  const realKOMatches = {}; // key: "teamA_teamB" (normalizado, orden alfabético)
+  for (const [key, espn] of Object.entries(espnResults)) {
+    if (!espn || espn.status !== 'FT') continue;
+    if (!espn.homeTeam || !espn.awayTeam) continue;
+    // Solo partidos KO (no de grupos — grupos tienen group en wc.matches)
+    // Los KO están en espnResults con claves como "South Africa-Canada" etc.
+    // Filtrar: si la clave tiene formato "XY-XY" (código de grupo) ignorar
+    if (/^[1-4][A-L]-/.test(key) || /^3[A-L]{2,}/.test(key)) continue;
+    const nt1 = norm(espn.homeTeam), nt2 = norm(espn.awayTeam);
+    const sorted = [nt1, nt2].sort().join('_');
+    realKOMatches[sorted] = { espn, key };
+  }
+
+  // También agregar partidos KO de openfootball (wc.matches sin group)
+  // Estos vienen en wcMatches pasados como parámetro
+  // Por ahora usar espnResults que ya los incluye si están en football-data
+
+  const koScoreTracked = {}; // evitar doble puntaje por jugador si tiene misma pred en dos slots
+  for (const m of data.ko_score) {
     for (const [pName, pd] of Object.entries(m.predictions)) {
       if (!totals[pName]) continue;
-      const pts = calcKOScore(pd.pred, espn, m.max_pts, m.bonus) || 0;
+      const pred = pd.pred || '';
+      if (!pred || !pred.includes('·')) continue;
+
+      // Extraer equipos de la predicción
+      const predTeams = pred.split('·')[0];
+      const parts = predTeams.split('-');
+      if (parts.length < 2) continue;
+      const predT1 = norm(parts[0].trim());
+      const predT2 = norm(parts.slice(1).join('-').trim());
+      const translatedT1 = ESP_TO_EN[predT1] || predT1;
+      const translatedT2 = ESP_TO_EN[predT2] || predT2;
+      const predSorted = [translatedT1, translatedT2].sort().join('_');
+
+      // Buscar si ese partido se jugó en la realidad
+      const realMatch = realKOMatches[predSorted];
+      if (!realMatch) continue;
+
+      // Evitar doble puntaje: misma predicción de equipos, mismo jugador
+      if (!koScoreTracked[pName]) koScoreTracked[pName] = new Set();
+      if (koScoreTracked[pName].has(predSorted)) continue;
+      koScoreTracked[pName].add(predSorted);
+
+      const pts = calcKOScore(pred, realMatch.espn, m.max_pts, m.bonus) || 0;
       totals[pName].total += pts;
       totals[pName].bySection.ko_partidos += pts;
     }
