@@ -642,11 +642,25 @@ app.get('/api/jornada', async(req,res)=>{
       if(espn&&espn.status==='CLASSIFIED'&&espn.team) classified16.add(espn.team);
     }
 
-    // Octavofinalistas: equipos que ganaron partidos de 16avos HOY
+    // Octavofinalistas: solo equipos que ganaron partidos de 16avos EN ESTA FECHA
+    // Filtrar por partidos ko_score que tienen fecha dentro de las fechas seleccionadas
+    const r16TodaySlots = new Set(
+      PORRA.ko_score.filter(m=>dates.includes(m.date)).map(m=>m.name)
+    );
     const classified8Today=new Set();
     for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Octavofinalista'))){
       const espn=results[m.name];
-      if(espn&&espn.status==='CLASSIFIED'&&espn.team) classified8Today.add(espn.team);
+      if(!espn||espn.status!=='CLASSIFIED'||!espn.team) continue;
+      // Verificar que el partido de 16avos que generó este clasificado es de hoy
+      // El slot Octavofinalista tiene result=W73, W74, etc.
+      // W73=2A-2B, W74=1C-2F, etc. — hay que ver si ese slot de 16avos es de hoy
+      const w = m.result; // e.g. "W74"
+      if(W_TO_MATCH && W_TO_MATCH[w]){
+        const slot16 = W_TO_MATCH[w]; // e.g. "1C-2F"
+        if(r16TodaySlots.has(slot16)){
+          classified8Today.add(espn.team);
+        }
+      }
     }
     const ko8Pts={};
     if(classified8Today.size>0){
