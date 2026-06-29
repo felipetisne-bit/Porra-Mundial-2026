@@ -26223,7 +26223,7 @@
     {
       "row": 167,
       "name": "2E-2I",
-      "max_pts": 28,
+      "max_pts": 14,
       "bonus": 2,
       "date": "2026-06-30",
       "result": "-",
@@ -27700,7 +27700,7 @@
     {
       "row": 174,
       "name": "2K-2L",
-      "max_pts": 28,
+      "max_pts": 14,
       "bonus": 2,
       "date": "2026-07-02",
       "result": "-",
@@ -28755,7 +28755,7 @@
     {
       "row": 199,
       "name": "W73-W75",
-      "max_pts": 40,
+      "max_pts": 20,
       "bonus": 2,
       "date": "Octavos de",
       "result": "-",
@@ -29388,7 +29388,7 @@
     {
       "row": 202,
       "name": "W79-W80",
-      "max_pts": 40,
+      "max_pts": 20,
       "bonus": 2,
       "date": "Octavos de",
       "result": "-",
@@ -30021,7 +30021,7 @@
     {
       "row": 205,
       "name": "W86-W88",
-      "max_pts": 40,
+      "max_pts": 20,
       "bonus": 2,
       "date": "Octavos de",
       "result": "-",
@@ -30443,8 +30443,8 @@
     {
       "row": 219,
       "name": "W89-W90",
-      "max_pts": 93,
-      "bonus": 3,
+      "max_pts": 20,
+      "bonus": 1,
       "date": "Cuartos de",
       "result": "-",
       "predictions": {
@@ -30865,8 +30865,8 @@
     {
       "row": 221,
       "name": "W91-W92",
-      "max_pts": 93,
-      "bonus": 3,
+      "max_pts": 20,
+      "bonus": 1,
       "date": "Cuartos de",
       "result": "-",
       "predictions": {
@@ -31287,8 +31287,8 @@
     {
       "row": 231,
       "name": "W97-W98",
-      "max_pts": 96,
-      "bonus": 2,
+      "max_pts": 48,
+      "bonus": 1,
       "date": "Semifinale",
       "result": "-",
       "predictions": {
@@ -31498,8 +31498,8 @@
     {
       "row": 232,
       "name": "W99-W100",
-      "max_pts": 144,
-      "bonus": 3,
+      "max_pts": 62,
+      "bonus": 1,
       "date": "Semifinale",
       "result": "-",
       "predictions": {
@@ -31709,7 +31709,7 @@
     {
       "row": 243,
       "name": "L101-L102",
-      "max_pts": 124,
+      "max_pts": 62,
       "bonus": 2,
       "date": "3-4 & Fina",
       "result": "-",
@@ -31920,8 +31920,8 @@
     {
       "row": 246,
       "name": "W101-W102",
-      "max_pts": 252,
-      "bonus": 3,
+      "max_pts": 84,
+      "bonus": 1,
       "date": "3-4 & Fina",
       "result": "-",
       "predictions": {
