@@ -764,25 +764,28 @@ function renderPronosticos(pronosticos) {
           </div>
         </div>`:''}
       </div>
-      ${m.match_type==='ko_score' && ((m.team1Players||[]).length+(m.team2Players||[]).length>0) ? `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-        ${(()=>{
-          const parts=m.match.split(' vs ');
-          const t1=parts[0]||'Equipo 1', t2=parts[1]||'Equipo 2';
-          const p1=m.team1Players||[], p2=m.team2Players||[];
-          return \`<div style="background:#e8f4fd;border-radius:8px;padding:8px 10px">
-            <div style="font-size:.63em;font-weight:800;color:#1565c0;text-transform:uppercase;margin-bottom:3px">🔵 \${t1} en Octavos</div>
-            <div style="font-size:.85em;font-weight:700;color:#1565c0">\${p1.length} jugadores</div>
-            <div style="font-size:.62em;color:#555;margin-top:2px">\${p1.slice(0,6).join(', ')}\${p1.length>6?' +\${p1.length-6} más':''}</div>
-          </div>
-          <div style="background:#fff3e0;border-radius:8px;padding:8px 10px">
-            <div style="font-size:.63em;font-weight:800;color:#e65100;text-transform:uppercase;margin-bottom:3px">🟠 \${t2} en Octavos</div>
-            <div style="font-size:.85em;font-weight:700;color:#e65100">\${p2.length} jugadores</div>
-            <div style="font-size:.62em;color:#555;margin-top:2px">\${p2.slice(0,6).join(', ')}\${p2.length>6?' +\${p2.length-6} más':''}</div>
-          </div>\`;
-        })()}
-      </div>` : ''}
-      ${m.match_type==='ko_score'?`<div style="font-size:.63em;font-weight:800;color:var(--mu);text-transform:uppercase;margin-bottom:4px">🎯 Llave exacta · ${m.players.length} jugadores</div>`:''}
+      ${(()=>{
+        if(m.match_type!=='ko_score') return '';
+        const p1=m.team1Players||[], p2=m.team2Players||[];
+        const vp=m.match.split(' vs ');
+        const t1=vp[0]||'', t2=vp[1]||'';
+        let out='';
+        if(p1.length+p2.length>0){
+          out+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">';
+          out+='<div style="background:#e8f4fd;border-radius:8px;padding:8px 10px">';
+          out+='<div style="font-size:.63em;font-weight:800;color:#1565c0;text-transform:uppercase;margin-bottom:3px">🔵 '+t1+' en Octavos</div>';
+          out+='<div style="font-size:.85em;font-weight:700;color:#1565c0">'+p1.length+' jugadores</div>';
+          out+='<div style="font-size:.62em;color:#555;margin-top:2px">'+p1.slice(0,6).join(', ')+(p1.length>6?' +'+(p1.length-6)+' más':'')+'</div>';
+          out+='</div>';
+          out+='<div style="background:#fff3e0;border-radius:8px;padding:8px 10px">';
+          out+='<div style="font-size:.63em;font-weight:800;color:#e65100;text-transform:uppercase;margin-bottom:3px">🟠 '+t2+' en Octavos</div>';
+          out+='<div style="font-size:.85em;font-weight:700;color:#e65100">'+p2.length+' jugadores</div>';
+          out+='<div style="font-size:.62em;color:#555;margin-top:2px">'+p2.slice(0,6).join(', ')+(p2.length>6?' +'+(p2.length-6)+' más':'')+'</div>';
+          out+='</div></div>';
+        }
+        out+='<div style="font-size:.63em;font-weight:800;color:var(--mu);text-transform:uppercase;margin-bottom:4px">🎯 Llave exacta · '+m.players.length+' jugadores</div>';
+        return out;
+      })()}
       <div class="pron-grid">`;
     m.players.forEach(p=>{
       const cls=p.pts===m.maxPts&&m.maxPts>0?'exact':p.pts>0?'sign':p.pts===0&&hasResult?'zero':'';
