@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const { recalcStandings, findExcelMatchForESPN, toResultFmt, calcGroupScore, namesMatch, calcTeamPred } = require('./scoring');
+const { recalcStandings, findExcelMatchForESPN, toResultFmt, calcGroupScore, calcKOScore, norm, namesMatch, calcTeamPred } = require('./scoring');
 const PORRA = require('./data/porra.json');
 
 const app = express();
@@ -567,12 +567,38 @@ app.get('/api/pronosticos', async(req,res)=>{
     const primaryDate=Array.isArray(dateStr)?dateStr[0]:dateStr;
     const {results}=await getResults();
     const jornadaMatches=getJornadaMatches(dateStr,results);
-    const pronosticos=jornadaMatches.map(m=>({
-      match:m.name,date:m.date,bonus:m.bonus,maxPts:m.max_pts,
-      match_type:m.match_type||'group_score',
-      result:m.result||'-',status:m.liveStatus||'NS',
-      players:Object.entries(m.predictions).map(([name,pd])=>({name,pred:pd.pred,pts:m.result&&m.result!=='-'?calcGroupScore(pd.pred,m.result,m.bonus):null})).sort((a,b)=>(b.pts||0)-(a.pts||0))
-    }));
+    const pronosticos=jornadaMatches.map(m=>{
+      const isKO = m.match_type === 'ko_score';
+      // Para ko_score: buscar resultado real por equipos (no por nombre del slot)
+      let espnResult = null;
+      if(isKO){
+        const parts=(m.name||'').split('-');
+        if(parts.length===2){
+          const t1=results[parts[0]]||parts[0];
+          const t2=results[parts[1]]||parts[1];
+          // Buscar en results el partido que tenga esos equipos
+          for(const [k,v] of Object.entries(results)){
+            if(v&&v.homeTeam&&v.awayTeam&&v.status==='FT'){
+              const nh=norm(v.homeTeam),na=norm(v.awayTeam);
+              const nt1=norm(t1),nt2=norm(t2);
+              if((nh===nt1&&na===nt2)||(nh===nt2&&na===nt1)){espnResult=v;break;}
+            }
+          }
+        }
+      }
+      return {
+        match:m.name,date:m.date,bonus:m.bonus,maxPts:m.max_pts,
+        match_type:m.match_type||'group_score',
+        result:espnResult?`${espnResult.homeTeam} ${espnResult.homeScore}-${espnResult.awayScore} ${espnResult.awayTeam}`:(m.result||'-'),
+        status:espnResult?'FT':(m.liveStatus||'NS'),
+        players:Object.entries(m.predictions).map(([name,pd])=>({
+          name,pred:pd.pred,
+          pts:isKO
+            ?(espnResult?calcKOScore(pd.pred,espnResult,m.max_pts,m.bonus)||0:null)
+            :(m.result&&m.result!=='-'?calcGroupScore(pd.pred,m.result,m.bonus):null)
+        })).sort((a,b)=>(b.pts||0)-(a.pts||0))
+      };
+    });
     const dates=Array.isArray(dateStr)?dateStr:[dateStr];
     const groupPosByDate=PORRA.group_pos.filter(m=>dates.includes(m.date));
     const groupPosPronosticos=groupPosByDate.map(m=>{
