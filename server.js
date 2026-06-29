@@ -553,7 +553,16 @@ async function generateGPTAnalysis(type, context) {
   try {
     const prompts = {
       impacto:`Eres el analista de una porra de fútbol entre amigos chilenos. Con estos datos genera un análisis de impacto en español informal y entretenido (máx 300 palabras). Incluye: qué partidos generaron más movimiento, grupos de puntos, caída del día, partido bonus más decisivo. Datos: ${JSON.stringify(context)}`,
-      cronica:`Eres el cronista de una porra de fútbol entre amigos chilenos. Escribe una crónica narrativa en español (máx 600 palabras) con el espíritu de Osvaldo Soriano y Eduardo Galeano: mezcla fútbol con nostalgia, humor porteño y pequeñas piezas literarias sobre el alma del juego. Como Soriano, teje lo cotidiano con lo épico, los nombres propios con la melancolía de lo que pudo ser. Como Galeano, convierte cada gol en una historia humana, cada pronóstico fallido en una metáfora de la vida. Habla de los participantes por su nombre, con afecto y picardía chilena. No pierdas el hilo de la porra: menciona puntajes, subidas, caídas y el drama real de la jornada. Datos: ${JSON.stringify(context)}`
+      cronica:`Eres el cronista de una porra de fútbol entre amigos chilenos. Escribe una crónica narrativa en español (máx 600 palabras) con el espíritu de Osvaldo Soriano y Eduardo Galeano.
+
+ESTRUCTURA OBLIGATORIA (en este orden):
+1. PRIMERO: El ranking de la jornada de hoy — quién sumó más puntos HOY (campo ptsHoy), menciona al ganador del día y los que más subieron. Usa los datos de rankingJornada.
+2. SEGUNDO: Resultados de los partidos del día y cómo afectaron los pronósticos.
+3. TERCERO: El ranking general actual — quién lidera la porra en total, quién sube y quién baja. Usa rankingGeneral.
+
+Estilo: mezcla fútbol con nostalgia, humor porteño y picardía chilena. Nombra a los participantes con afecto. Convierte cada pronóstico fallido en una metáfora de la vida. 
+
+Datos: ${JSON.stringify(context)}`
     };
     const data = await fetchJSON('https://api.anthropic.com/v1/messages', {
       method:'POST',
@@ -711,7 +720,29 @@ app.get('/api/analysis/:type', async(req,res)=>{
     const jornadaMatches=getJornadaMatches(dateStr,results);
     const summary=buildJornadaSummary(jornadaMatches,standings);
     const premios=buildPremiosFecha(jornadaMatches);
-    const context={date:dateStr,matches:jornadaMatches.map(m=>({name:m.name,result:m.result,bonus:m.bonus})),top5:standings.slice(0,5).map(p=>({name:p.name,total:p.total})),summary:summary.slice(0,10),premios};
+    // Enriquecer summary con pts de grupos, 16avos y octavos para la crónica
+    const groupPosPtsCron={}, ko16PtsCron={}, ko8PtsCron={};
+    const dates2=Array.isArray(dateStr)?dateStr:[dateStr];
+    for(const m of PORRA.group_pos.filter(m=>dates2.includes(m.date))){
+      const actualTeam=results[m.result]||null;
+      if(!actualTeam) continue;
+      for(const [pName,pd] of Object.entries(m.predictions)){
+        if(namesMatch(pd.pred,actualTeam)) groupPosPtsCron[pName]=(groupPosPtsCron[pName]||0)+m.max_pts;
+      }
+    }
+    const summaryEnrichedCron=summary.map(p=>{
+      const matchPts=p.todayPts||0;
+      const gpp=groupPosPtsCron[p.name]||0;
+      const totalHoy=matchPts+gpp;
+      return {...p,todayPts:totalHoy};
+    }).sort((a,b)=>b.todayPts-a.todayPts||b.total-a.total);
+    const context={
+      date:dateStr,
+      matches:jornadaMatches.map(m=>({name:m.name,result:m.result,bonus:m.bonus})),
+      rankingGeneral:standings.slice(0,5).map((p,i)=>({pos:i+1,name:p.name,total:p.total})),
+      rankingJornada:summaryEnrichedCron.slice(0,10).map((p,i)=>({pos:i+1,name:p.name,ptsHoy:p.todayPts,totalGeneral:p.total})),
+      premios
+    };
     const text=await generateGPTAnalysis(type,context);
     res.json({ok:true,text,date:dateStr});
   } catch(e){res.status(500).json({ok:false,error:e.message});}
