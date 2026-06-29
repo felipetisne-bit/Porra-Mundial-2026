@@ -97,6 +97,23 @@ function calcGroupScore(pred, result, bonus) {
  * The "result" in the Excel will be "TeamA-TeamB·sign|H-A" once known
  * For now espnResults map provides homeScore/awayScore + the actual team names
  */
+// Tabla de puntos por ronda según Excel ADMIN
+// Determinado por maxPts del slot en porra.json
+function getKOPtsTable(maxPts) {
+  // 16avos: max=14 → signo=5, diff=8(5+3), exacto=14(5+3+6)
+  if (maxPts <= 14)  return { sign: 5,  diff: 8,  exact: 14 };
+  // Octavos: max=20 → signo=7, diff=11(7+4), exacto=20(7+4+9)
+  if (maxPts <= 20)  return { sign: 7,  diff: 11, exact: 20 };
+  // Cuartos: max=31 → signo=11, diff=17(11+6), exacto=31(11+6+14)
+  if (maxPts <= 31)  return { sign: 11, diff: 17, exact: 31 };
+  // Semis: max=48 → signo=17, diff=26(17+9), exacto=48(17+9+22)
+  if (maxPts <= 48)  return { sign: 17, diff: 26, exact: 48 };
+  // 3°y4°: max=62 → signo=22, diff=34(22+12), exacto=62(22+12+28)
+  if (maxPts <= 62)  return { sign: 22, diff: 34, exact: 62 };
+  // Final: max=84 → signo=30, diff=46(30+16), exacto=84(30+16+38)
+  return { sign: 30, diff: 46, exact: 84 };
+}
+
 function calcKOScore(pred, espnResult, maxPts, bonus) {
   if (!espnResult || espnResult.status !== 'FT') return null; // pending
   const parsed = parseKOPred(pred);
@@ -104,23 +121,30 @@ function calcKOScore(pred, espnResult, maxPts, bonus) {
 
   const homeOk = namesMatch(parsed.home, espnResult.homeTeam);
   const awayOk = namesMatch(parsed.away, espnResult.awayTeam);
-  // También evaluar orden invertido (predijo visita-local)
   const homeOkInv = namesMatch(parsed.home, espnResult.awayTeam);
   const awayOkInv = namesMatch(parsed.away, espnResult.homeTeam);
 
+  const tbl = getKOPtsTable(maxPts);
+
+  const scoreResult = (scoreStr, realHome, realAway) => {
+    const parts = scoreStr ? scoreStr.split('|') : [];
+    if (parts.length < 2) return 0;
+    const sign = parts[0];
+    const goals = parts[1].split('-').map(Number);
+    if (goals.length !== 2) return 0;
+    const realSign = realHome > realAway ? '1' : realHome < realAway ? '2' : 'X';
+    if (sign !== realSign) return 0;
+    // bonus multiplica los pts base de la tabla
+    if (goals[0] === realHome && goals[1] === realAway) return tbl.exact * bonus;
+    if ((goals[0]-goals[1]) === (realHome-realAway)) return tbl.diff * bonus;
+    return tbl.sign * bonus;
+  };
+
   let pts = 0;
   if (homeOk && awayOk) {
-    // Orden correcto → comparar resultado directo
-    const resultFmt = toResultFmt(espnResult.homeScore, espnResult.awayScore);
-    pts = calcScorePoints(parsed.scoreStr, resultFmt, bonus);
+    pts = scoreResult(parsed.scoreStr, espnResult.homeScore, espnResult.awayScore);
   } else if (homeOkInv && awayOkInv) {
-    // Orden invertido → invertir resultado para comparar
-    // Si predijo Japan-Brazil 1|2-1, pero el partido es Brazil-Japan 1|1-2
-    // el signo se invierte: 1→2, 2→1, X→X
-    const invertSign = s => s === '1' ? '2' : s === '2' ? '1' : 'X';
-    const resultFmt = toResultFmt(espnResult.awayScore, espnResult.homeScore);
-    const predInverted = `${invertSign(parsed.scoreStr.split('|')[0])}|${parsed.scoreStr.split('|')[1].split('-').reverse().join('-')}`;
-    pts = calcScorePoints(predInverted, resultFmt, bonus);
+    pts = scoreResult(parsed.scoreStr, espnResult.awayScore, espnResult.homeScore);
   }
   return pts;
 }
