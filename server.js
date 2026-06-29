@@ -358,18 +358,56 @@ function getTodayMatches(allMatches) {
   return allMatches.filter(m=>m.date===today || m.date===yesterday);
 }
 
+function findKOResult(matchName, results) {
+  // Para partidos KO, el nombre es "2A-2B" o "1C-2F" etc.
+  // Hay que buscar en results por los equipos reales
+  const parts = matchName.split('-');
+  if (parts.length < 2) return null;
+  // Resolver códigos a equipos
+  const t1 = results[parts[0]] || parts[0];
+  const t2 = results[parts.slice(1).join('-')] || parts.slice(1).join('-');
+  if (!t1 || !t2) return null;
+  // Buscar en results el partido con esos equipos
+  for (const [k, v] of Object.entries(results)) {
+    if (!v || !v.homeTeam || !v.awayTeam) continue;
+    const nh = norm(v.homeTeam), na = norm(v.awayTeam);
+    const nt1 = norm(typeof t1 === 'string' ? t1 : (t1.team||'')); 
+    const nt2 = norm(typeof t2 === 'string' ? t2 : (t2.team||''));
+    if ((nh===nt1&&na===nt2)||(nh===nt2&&na===nt1)) return v;
+  }
+  return null;
+}
+
 function getJornadaMatches(dateStr, results) {
   const allScore = [...PORRA.group_score,...PORRA.ko_score];
   const dates = Array.isArray(dateStr) ? dateStr : [dateStr];
   return allScore.filter(m=>dates.includes(m.date)).map(m=>{
-    const r=results[m.name];
-    let result=m.result;
-    if(r&&r.homeScore!=null) result=toResultFmt(r.homeScore,r.awayScore);
+    const isKO = PORRA.ko_score.includes(m);
+    let r = results[m.name];
+    // Para KO, buscar por equipos si no hay resultado directo
+    if (isKO && !r) r = findKOResult(m.name, results);
+    let result = m.result;
+    if (r && r.homeScore != null) result = toResultFmt(r.homeScore, r.awayScore);
+    // Nombre legible para KO
+    let displayName = m.name;
+    if (isKO && r && r.homeTeam && r.awayTeam) {
+      displayName = `${r.homeTeam} vs ${r.awayTeam}`;
+    } else if (isKO) {
+      // Resolver códigos a nombres
+      const parts = m.name.split('-');
+      const t1 = results[parts[0]];
+      const t2 = results[parts.slice(1).join('-')];
+      const n1 = t1 ? (typeof t1==='string'?t1:t1.team||parts[0]) : parts[0];
+      const n2 = t2 ? (typeof t2==='string'?t2:t2.team||parts.slice(1).join('-')) : parts.slice(1).join('-');
+      displayName = `${n1} vs ${n2}`;
+    }
     const playerResults=Object.entries(m.predictions).map(([name,pd])=>({
       name,pred:pd.pred,
-      pts:result&&result!=='-'?calcGroupScore(pd.pred,result,m.bonus):null
+      pts:isKO
+        ?(r?calcKOScore(pd.pred,r,m.max_pts,m.bonus)||0:null)
+        :(result&&result!=='-'?calcGroupScore(pd.pred,result,m.bonus):null)
     }));
-    return {...m,result,liveStatus:r?.status||'NS',playerResults};
+    return {...m,name:displayName||m.name,result,liveStatus:r?.status||'NS',playerResults};
   });
 }
 
