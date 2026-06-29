@@ -443,7 +443,7 @@ function getJornadaMatches(dateStr, results) {
         ?(r?calcKOScore(pd.pred,r,m.max_pts,m.bonus)||0:null)
         :(result&&result!=='-'?calcGroupScore(pd.pred,result,m.bonus):null)
     }));
-    return {...m,name:displayName||m.name,result,liveStatus:r?.status||'NS',playerResults};
+    return {...m,name:displayName||m.name,slotName:m.name,result,liveStatus:r?.status||'NS',espnResult:r,playerResults};
   });
 }
 
@@ -679,28 +679,18 @@ app.get('/api/pronosticos', async(req,res)=>{
     const jornadaMatches=getJornadaMatches(dateStr,results);
     const pronosticos=jornadaMatches.map(m=>{
       const isKO = m.match_type === 'ko_score';
-      // Para ko_score: buscar resultado real por equipos (no por nombre del slot)
-      let espnResult = null;
-      if(isKO){
-        const parts=(m.name||'').split('-');
-        if(parts.length===2){
-          const t1=results[parts[0]]||parts[0];
-          const t2=results[parts[1]]||parts[1];
-          // Buscar en results el partido que tenga esos equipos
-          for(const [k,v] of Object.entries(results)){
-            if(v&&v.homeTeam&&v.awayTeam&&v.status==='FT'){
-              const nh=norm(v.homeTeam),na=norm(v.awayTeam);
-              const nt1=norm(t1),nt2=norm(t2);
-              if((nh===nt1&&na===nt2)||(nh===nt2&&na===nt1)){espnResult=v;break;}
-            }
-          }
-        }
-      }
+      // espnResult ya viene resuelto desde getJornadaMatches
+      const espnResult = isKO ? m.espnResult : null;
+      const resultFmt = isKO && espnResult
+        ? toResultFmt(espnResult.homeScore, espnResult.awayScore)
+        : (m.result||'-');
       return {
         match:m.name,date:m.date,bonus:m.bonus,maxPts:m.max_pts,
         match_type:m.match_type||'group_score',
-        result:espnResult?`${espnResult.homeTeam} ${espnResult.homeScore}-${espnResult.awayScore} ${espnResult.awayTeam}`:(m.result||'-'),
-        status:espnResult?'FT':(m.liveStatus||'NS'),
+        result:isKO && espnResult
+          ? `${espnResult.homeTeam} ${espnResult.homeScore}-${espnResult.awayScore} ${espnResult.awayTeam}`
+          : (m.result||'-'),
+        status:m.liveStatus||'NS',
         players:Object.entries(m.predictions).map(([name,pd])=>({
           name,pred:pd.pred,
           pts:isKO
