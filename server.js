@@ -270,12 +270,22 @@ function resolveKOCode(code, allResults, groupPos) {
   if (!code || code === '-') return null;
   // 1° o 2° o 3° o 4° de un grupo cerrado
   if (code.match(/^[1-4][A-L]$/)) return groupPos[code] || null;
-  // Mejor 3° — solo resuelve si _CLASIFICA fue poblado (all12Done=true)
+  // Mejor 3° — tabla de asignación oficial FIFA para Mundial 2026
+  // Grupos B,D,E,F,I,J,K,L clasificaron sus terceros
   if (code.match(/^3[A-L]{2,}$/)) {
-    for (const g of code.slice(1).split('')) {
-      if (groupPos[`3${g}_CLASIFICA`]) return groupPos[`3${g}_CLASIFICA`];
-    }
-    return null; // No resuelto hasta que cierren los 12 grupos
+    const BEST3_ASSIGNMENT = {
+      '3ABCDF': '3D', // Paraguay
+      '3CDFGH': '3F', // Sweden
+      '3CEFHI': '3E', // Ecuador
+      '3EHIJK': '3K', // DR Congo
+      '3AEHIJ': '3I', // Senegal
+      '3BEFIJ': '3B', // Bosnia & Herzegovina
+      '3EFGIJ': '3J', // Algeria
+      '3DEIJL': '3L', // Ghana
+    };
+    const assigned = BEST3_ASSIGNMENT[code];
+    if (assigned && groupPos[assigned]) return groupPos[assigned];
+    return null;
   }
   // Ganador de partido KO
   if (code.startsWith('W')) {
