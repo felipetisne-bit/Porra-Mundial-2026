@@ -702,7 +702,10 @@ function renderPronosticos(pronosticos) {
     const scoreVotes={};
     m.players.forEach(p=>{
       if(!p.pred||p.pred==='-') return;
-      const parts=p.pred.split('|');
+      // KO pred: "Brasil-Japón·1|3-1" → parte después del · es "1|3-1"
+      // Group pred: "1|2-1" → directo
+      const predScore = p.pred.includes('·') ? p.pred.split('·')[1] : p.pred;
+      const parts = predScore ? predScore.split('|') : [];
       const sign=parts[0];
       if(sign==='1'||sign==='X'||sign==='2') signs[sign]++;
       if(parts[1]) scoreVotes[parts[1]]=(scoreVotes[parts[1]]||0)+1;
