@@ -821,12 +821,23 @@ app.get('/api/pronosticos', async(req,res)=>{
       // Para KO: calcular quiénes tienen cada equipo en octavos (cualquier slot)
       let team1Players = [], team2Players = [];
       if(isKO){
-        const slotParts2 = (m.slotName||m.name).split('-');
-        const team1 = resolveSlotToTeam(slotParts2[0], results);
-        const team2 = resolveSlotToTeam(slotParts2.slice(1).join('-'), results);
+        // Obtener equipos del partido — desde espnResult o desde displayName
+        let team1, team2;
+        if(espnResult && espnResult.homeTeam){
+          team1 = espnResult.homeTeam;
+          team2 = espnResult.awayTeam;
+        } else {
+          // displayName es "Brazil vs Japan" o "Germany vs Paraguay"
+          const vsParts = m.name.split(' vs ');
+          if(vsParts.length === 2){
+            team1 = vsParts[0].trim();
+            team2 = vsParts[1].trim();
+          }
+        }
         // Determinar la ronda KO siguiente (para buscar en ko_team)
         const nextRound = 'Octavofinalista';
         const nextSlots = PORRA.ko_team.filter(m=>m.name.startsWith(nextRound));
+        console.log(`[TEAM_PLAYERS] team1=${team1} team2=${team2} nextSlots=${nextSlots.length}`);
         if(team1){
           const seen = new Set();
           for(const slot of nextSlots){
@@ -838,6 +849,7 @@ app.get('/api/pronosticos', async(req,res)=>{
               }
             }
           }
+          console.log(`[TEAM_PLAYERS] ${team1}: ${team1Players.length} jugadores`);
         }
         if(team2){
           const seen = new Set();
@@ -850,6 +862,7 @@ app.get('/api/pronosticos', async(req,res)=>{
               }
             }
           }
+          console.log(`[TEAM_PLAYERS] ${team2}: ${team2Players.length} jugadores`);
         }
       }
       return {
