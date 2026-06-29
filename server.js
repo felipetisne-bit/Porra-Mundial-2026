@@ -296,7 +296,24 @@ function resolveKOCode(code, allResults, groupPos) {
   if (code.startsWith('W')) {
     const matchName = W_TO_MATCH[code];
     if (!matchName) return null;
-    const match = allResults[matchName];
+    // Buscar resultado: primero por nombre del slot, luego por equipos resueltos
+    let match = allResults[matchName];
+    if (!match) {
+      // Resolver los dos lados del partido a equipos reales y buscar
+      const parts = matchName.split('-');
+      const t1 = resolveKOCode(parts[0], allResults, groupPos);
+      const t2 = resolveKOCode(parts.slice(1).join('-'), allResults, groupPos);
+      if (t1 && t2) {
+        // Buscar en allResults el partido con esos equipos
+        for (const [k, v] of Object.entries(allResults)) {
+          if (!v || !v.homeTeam || !v.awayTeam) continue;
+          const nh = norm(v.homeTeam), na = norm(v.awayTeam);
+          if ((nh===norm(t1)&&na===norm(t2))||(nh===norm(t2)&&na===norm(t1))) {
+            match = v; break;
+          }
+        }
+      }
+    }
     if (!match || match.status !== 'FT') return null;
     return match.homeScore > match.awayScore ? match.homeTeam :
            match.awayScore > match.homeScore ? match.awayTeam : null;
@@ -305,7 +322,21 @@ function resolveKOCode(code, allResults, groupPos) {
   if (code.startsWith('L')) {
     const matchName = W_TO_MATCH[code.replace('L','W')];
     if (!matchName) return null;
-    const match = allResults[matchName];
+    let match = allResults[matchName];
+    if (!match) {
+      const parts = matchName.split('-');
+      const t1 = resolveKOCode(parts[0], allResults, groupPos);
+      const t2 = resolveKOCode(parts.slice(1).join('-'), allResults, groupPos);
+      if (t1 && t2) {
+        for (const [k, v] of Object.entries(allResults)) {
+          if (!v || !v.homeTeam || !v.awayTeam) continue;
+          const nh = norm(v.homeTeam), na = norm(v.awayTeam);
+          if ((nh===norm(t1)&&na===norm(t2))||(nh===norm(t2)&&na===norm(t1))) {
+            match = v; break;
+          }
+        }
+      }
+    }
     if (!match || match.status !== 'FT') return null;
     return match.homeScore > match.awayScore ? match.awayTeam :
            match.awayScore > match.homeScore ? match.homeTeam : null;
