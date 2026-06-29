@@ -25,6 +25,15 @@ const ESP_TO_EN_SERVER = {
 
 const PORRA = require('./data/porra.json');
 
+// ─── Contador de visitas ────────────────────────────────────────────────
+const visitCounter = { today: 0, total: 0, date: '' };
+function trackVisit() {
+  const today = getTodayStr();
+  if (visitCounter.date !== today) { visitCounter.date = today; visitCounter.today = 0; }
+  visitCounter.today++;
+  visitCounter.total++;
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'porra2026';
@@ -740,14 +749,24 @@ app.get('/api/analysis/:type', async(req,res)=>{
       const totalHoy=matchPts+gpp;
       return {...p,todayPts:totalHoy};
     }).sort((a,b)=>b.todayPts-a.todayPts||b.total-a.total);
+    // Formatear resultados de forma clara para evitar alucinaciones de la IA
+    const matchesForCron = jornadaMatches.map(m=>{
+      let resultStr = 'No jugado aún';
+      if(m.liveStatus === 'FT' && m.espnResult){
+        const r = m.espnResult;
+        resultStr = `${r.homeTeam} ${r.homeScore} - ${r.awayScore} ${r.awayTeam} (Final)`;
+      } else if(m.liveStatus === 'LIVE' && m.espnResult){
+        const r = m.espnResult;
+        resultStr = `${r.homeTeam} ${r.homeScore} - ${r.awayScore} ${r.awayTeam} (En vivo)`;
+      } else if(m.liveStatus === 'FT' && m.result && m.result !== '-'){
+        resultStr = `Resultado: ${m.result} (Final)`;
+      }
+      return { name:m.name, resultado:resultStr, status:m.liveStatus||'NS' };
+    });
     const context={
       date:dateStr,
-      matches:jornadaMatches.map(m=>({
-        name:m.name,
-        result:m.result&&m.result!=='-'?m.result:'Pendiente',
-        status:m.liveStatus||'NS',
-        bonus:m.bonus
-      })),
+      IMPORTANTE:'USA SOLO los resultados del campo "partidos". NUNCA inventes marcadores.',
+      partidos:matchesForCron,
       rankingGeneral:standings.slice(0,5).map((p,i)=>({pos:i+1,name:p.name,total:p.total})),
       rankingJornada:summaryEnrichedCron.slice(0,10).map((p,i)=>({pos:i+1,name:p.name,ptsHoy:p.todayPts,totalGeneral:p.total})),
       premios
@@ -947,5 +966,9 @@ app.get('/api/debug',async(req,res)=>{
 });
 
 app.get('/health',(_, res)=>res.json({ok:true,uptime:process.uptime()}));
-app.get('*',(_, res)=>res.sendFile(path.join(__dirname,'public','index.html')));
+app.get('/api/visits',(req,res)=>res.json({ok:true,today:visitCounter.today,total:visitCounter.total,date:visitCounter.date}));
+app.get('*',(req, res)=>{
+  if(!req.path.startsWith('/api')) trackVisit();
+  res.sendFile(path.join(__dirname,'public','index.html'));
+});
 app.listen(PORT,()=>console.log(`🏆 Porra en vivo → http://localhost:${PORT}`));
