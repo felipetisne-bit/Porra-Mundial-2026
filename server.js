@@ -787,6 +787,40 @@ app.get('/api/pronosticos', async(req,res)=>{
           pts:m.result&&m.result!=='-'?calcGroupScore(pd.pred,m.result,m.bonus):null
         })).sort((a,b)=>(b.pts||0)-(a.pts||0));
       }
+      // Para KO: calcular quiénes tienen cada equipo en octavos (cualquier slot)
+      let team1Players = [], team2Players = [];
+      if(isKO){
+        const slotParts2 = (m.slotName||m.name).split('-');
+        const team1 = resolveSlotToTeam(slotParts2[0], results);
+        const team2 = resolveSlotToTeam(slotParts2.slice(1).join('-'), results);
+        // Determinar la ronda KO siguiente (para buscar en ko_team)
+        const nextRound = 'Octavofinalista';
+        const nextSlots = PORRA.ko_team.filter(m=>m.name.startsWith(nextRound));
+        if(team1){
+          const seen = new Set();
+          for(const slot of nextSlots){
+            for(const [pname,pd] of Object.entries(slot.predictions)){
+              if(seen.has(pname)) continue;
+              if((calcTeamPred(pd.pred,team1,slot.max_pts)||0)>0){
+                seen.add(pname);
+                team1Players.push(pname);
+              }
+            }
+          }
+        }
+        if(team2){
+          const seen = new Set();
+          for(const slot of nextSlots){
+            for(const [pname,pd] of Object.entries(slot.predictions)){
+              if(seen.has(pname)) continue;
+              if((calcTeamPred(pd.pred,team2,slot.max_pts)||0)>0){
+                seen.add(pname);
+                team2Players.push(pname);
+              }
+            }
+          }
+        }
+      }
       return {
         match:m.name,date:m.date,bonus:m.bonus,maxPts:m.max_pts,
         match_type:m.match_type||'group_score',
@@ -794,7 +828,8 @@ app.get('/api/pronosticos', async(req,res)=>{
           ? `${espnResult.homeTeam} ${espnResult.homeScore}-${espnResult.awayScore} ${espnResult.awayTeam}`
           : (m.result||'-'),
         status:m.liveStatus||'NS',
-        players
+        players,
+        team1Players, team2Players
       };
     });
     const dates=Array.isArray(dateStr)?dateStr:[dateStr];
