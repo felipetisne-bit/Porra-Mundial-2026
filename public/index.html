@@ -516,7 +516,8 @@ function renderJornadaTable(summary, matches, date) {
   }
   const hasGroupPos=summary.some(p=>p.groupPosPts>0);
   const hasKo16=summary.some(p=>p.ko16Pts>0);
-  html+=`<table class="jornada-table"><thead><tr><th>#</th><th>Participante</th><th>Pts Total</th><th>Partidos</th>${hasGroupPos?'<th>Pos.Grupo</th>':''}${hasKo16?'<th>16avos</th>':''}<th>Pts Hoy</th><th>Var.</th></tr></thead><tbody>`;
+  const hasKo8=summary.some(p=>p.ko8Pts>0);
+  html+=`<table class="jornada-table"><thead><tr><th>#</th><th>Participante</th><th>Pts Total</th><th>Partidos</th>${hasGroupPos?'<th>Pos.Grupo</th>':''}${hasKo16?'<th>16avos</th>':''} ${hasKo8?'<th>Octavos</th>':''}<th>Pts Hoy</th><th>Var.</th></tr></thead><tbody>`;
   summary.forEach((p,i)=>{
     const varHtml=p.variation>0?`<span class="var-up">▲ +${p.variation}</span>`:`<span class="var-zero">—</span>`;
     let bestTag='';
@@ -531,6 +532,7 @@ function renderJornadaTable(summary, matches, date) {
       <td style="color:${partPts>0?'var(--v)':'var(--mu)'}">${partPts>0?'+'+partPts:partPts||'—'}</td>
       ${hasGroupPos?`<td style="color:${p.groupPosPts>0?'#5b8dd9':'var(--mu)'};font-weight:${p.groupPosPts>0?700:400}">${p.groupPosPts>0?'+'+p.groupPosPts:'—'}</td>`:''}
       ${hasKo16?`<td style="color:${p.ko16Pts>0?'#e07b2a':'var(--mu)'};font-weight:${p.ko16Pts>0?700:400}">${p.ko16Pts>0?'+'+p.ko16Pts:'—'}</td>`:''}
+      ${hasKo8?`<td style="color:${p.ko8Pts>0?'#3b8d44':'var(--mu)'};font-weight:${p.ko8Pts>0?700:400}">${p.ko8Pts>0?'+'+p.ko8Pts:'—'}</td>`:''}
       <td style="font-weight:800;color:${p.todayPts>0?'var(--v)':'var(--mu)'}">${p.todayPts||'—'}</td>
       <td>${varHtml}</td></tr>`;
   });
@@ -639,9 +641,49 @@ function renderGroupPosBlock(m) {
 
 function namesMatchJS(a, b) {
   if(!a||!b) return false;
-  const norm=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+  // Diccionario completo ESP→EN para los 48 equipos del Mundial 2026
+  const ESP_TO_EN = {
+    'alemania':'germany','arabiaasaudita':'saudiarabia','argelia':'algeria',
+    'argentina':'argentina','australia':'australia','austria':'austria',
+    'bosniaherzegovina':'bosniaherzegovina','brasil':'brazil',
+    'belgica':'belgium','caboverde':'capeverde','canada':'canada',
+    'catar':'qatar','colombia':'colombia','coreadelsur':'southkorea',
+    'costademarfil':'ivorycoast','croacia':'croatia','curazao':'curacao',
+    'ecuador':'ecuador','egipto':'egypt','escocia':'scotland',
+    'espana':'spain','estadosunidos':'usa','francia':'france',
+    'ghana':'ghana','haiti':'haiti','inglaterra':'england',
+    'irak':'iraq','iran':'iran','japon':'japan','jordania':'jordan',
+    'marruecos':'morocco','mexico':'mexico','noruega':'norway',
+    'nuevazelanda':'newzealand','panama':'panama','paraguay':'paraguay',
+    'paisesbajos':'netherlands','portugal':'portugal','rdcongo':'drcongo',
+    'republicacheca':'czechrepublic','senegal':'senegal','sudafrica':'southafrica',
+    'suecia':'sweden','suiza':'switzerland','turquia':'turkey',
+    'tunez':'tunisia','uruguay':'uruguay','uzbekistan':'uzbekistan',
+    // inverso EN→normalizado (para cuando el resultado viene en inglés)
+    'germany':'germany','saudiarabia':'saudiarabia','algeria':'algeria',
+    'belgium':'belgium','capeverde':'capeverde','qatar':'qatar',
+    'southkorea':'southkorea','ivorycoast':'ivorycoast','croatia':'croatia',
+    'curacao':'curacao','egypt':'egypt','scotland':'scotland',
+    'spain':'spain','usa':'usa','france':'france','haiti':'haiti',
+    'england':'england','iraq':'iraq','iran':'iran','japan':'japan',
+    'jordan':'jordan','morocco':'morocco','mexico':'mexico','norway':'norway',
+    'newzealand':'newzealand','panama':'panama','netherlands':'netherlands',
+    'drcongo':'drcongo','czechrepublic':'czechrepublic','senegal':'senegal',
+    'southafrica':'southafrica','sweden':'sweden','switzerland':'switzerland',
+    'turkey':'turkey','tunisia':'tunisia','brazil':'brazil',
+    'bosniaherzegovina':'bosniaherzegovina',
+  };
+  const norm=s=>s.toLowerCase()
+    .replace(/\s+y\s+/g,'').replace(/\s*&\s*/g,'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
   const na=norm(a), nb=norm(b);
-  return na===nb||na.includes(nb)||nb.includes(na);
+  if(na===nb) return true;
+  const ta=ESP_TO_EN[na]||na, tb=ESP_TO_EN[nb]||nb;
+  if(ta===tb) return true;
+  if(ta===nb||na===tb) return true;
+  if(na.length>=4&&nb.includes(na)) return true;
+  if(nb.length>=4&&na.includes(nb)) return true;
+  return false;
 }
 
 function renderPronosticos(pronosticos) {
