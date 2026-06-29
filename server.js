@@ -2,6 +2,27 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const { recalcStandings, findExcelMatchForESPN, toResultFmt, calcGroupScore, calcKOScore, norm, namesMatch, calcTeamPred } = require('./scoring');
+
+// Diccionario ESP→EN para uso en server.js
+const ESP_TO_EN_SERVER = {
+  'alemania':'germany','arabiaasaudita':'saudiarabia','argelia':'algeria',
+  'argentina':'argentina','australia':'australia','austria':'austria',
+  'bosniaherzegovina':'bosniaherzegovina','brasil':'brazil',
+  'belgica':'belgium','caboverde':'capeverde','canada':'canada',
+  'catar':'qatar','colombia':'colombia','coreadelsur':'southkorea',
+  'costademarfil':'ivorycoast','croacia':'croatia','curazao':'curacao',
+  'ecuador':'ecuador','egipto':'egypt','escocia':'scotland',
+  'espana':'spain','estadosunidos':'usa','francia':'france',
+  'ghana':'ghana','haiti':'haiti','inglaterra':'england',
+  'irak':'iraq','iran':'iran','japon':'japan','jordania':'jordan',
+  'marruecos':'morocco','mexico':'mexico','noruega':'norway',
+  'nuevazelanda':'newzealand','panama':'panama','paraguay':'paraguay',
+  'paisesbajos':'netherlands','portugal':'portugal','rdcongo':'drcongo',
+  'republicacheca':'czechrepublic','senegal':'senegal','sudafrica':'southafrica',
+  'suecia':'sweden','suiza':'switzerland','turquia':'turkey',
+  'tunez':'tunisia','uruguay':'uruguay','uzbekistan':'uzbekistan',
+};
+
 const PORRA = require('./data/porra.json');
 
 const app = express();
