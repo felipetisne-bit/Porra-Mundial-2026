@@ -394,22 +394,49 @@ function getTodayMatches(allMatches) {
   return allMatches.filter(m=>m.date===today || m.date===yesterday);
 }
 
+function resolveSlotToTeam(code, results) {
+  // Resolver cualquier código de slot a nombre de equipo
+  if (!code) return null;
+  // Código simple de grupo: 1A, 2B, 3C, 4D
+  if (code.match(/^[1-4][A-L]$/)) {
+    const r = results[code];
+    return typeof r === 'string' ? r : (r && r.team ? r.team : null);
+  }
+  // Mejor 3°: 3ABCDF etc.
+  if (code.match(/^3[A-L]{2,}$/)) {
+    const BEST3 = {
+      '3ABCDF':'3D','3CDFGH':'3F','3CEFHI':'3E','3EHIJK':'3K',
+      '3AEHIJ':'3I','3BEFIJ':'3B','3EFGIJ':'3J','3DEIJL':'3L',
+    };
+    const assigned = BEST3[code];
+    if (assigned) {
+      const r = results[assigned];
+      return typeof r === 'string' ? r : (r && r.team ? r.team : null);
+    }
+  }
+  // Ganador de partido KO: W73, W74...
+  if (code.startsWith('W') && W_TO_MATCH[code]) {
+    const r = results[code];
+    return r && r.team ? r.team : null;
+  }
+  return null;
+}
+
 function findKOResult(matchName, results) {
-  // Para partidos KO, el nombre es "2A-2B" o "1C-2F" etc.
-  // Hay que buscar en results por los equipos reales
+  // Para partidos KO, el nombre es "2A-2B", "1E-3ABCDF", "W73-W75" etc.
   const parts = matchName.split('-');
   if (parts.length < 2) return null;
-  // Resolver códigos a equipos
-  const t1 = results[parts[0]] || parts[0];
-  const t2 = results[parts.slice(1).join('-')] || parts.slice(1).join('-');
+  // Resolver cada parte a equipo real
+  const code1 = parts[0];
+  const code2 = parts.slice(1).join('-');
+  const t1 = resolveSlotToTeam(code1, results);
+  const t2 = resolveSlotToTeam(code2, results);
   if (!t1 || !t2) return null;
   // Buscar en results el partido con esos equipos
   for (const [k, v] of Object.entries(results)) {
     if (!v || !v.homeTeam || !v.awayTeam) continue;
     const nh = norm(v.homeTeam), na = norm(v.awayTeam);
-    const nt1 = norm(typeof t1 === 'string' ? t1 : (t1.team||'')); 
-    const nt2 = norm(typeof t2 === 'string' ? t2 : (t2.team||''));
-    if ((nh===nt1&&na===nt2)||(nh===nt2&&na===nt1)) return v;
+    if ((nh===norm(t1)&&na===norm(t2))||(nh===norm(t2)&&na===norm(t1))) return v;
   }
   return null;
 }
@@ -684,6 +711,41 @@ app.get('/api/pronosticos', async(req,res)=>{
       const resultFmt = isKO && espnResult
         ? toResultFmt(espnResult.homeScore, espnResult.awayScore)
         : (m.result||'-');
+      // Para KO: filtrar solo jugadores que predijeron exactamente esos equipos
+      let players;
+      if(isKO && espnResult){
+        const nt1=norm(espnResult.homeTeam), nt2=norm(espnResult.awayTeam);
+        const allKOPreds = {};
+        // Recolectar todas las predicciones de todos los slots ko_score para esta fecha
+        for(const ko of PORRA.ko_score){
+          for(const [pname,pd] of Object.entries(ko.predictions)){
+            if(!pd.pred||!pd.pred.includes('·')) continue;
+            const teams=pd.pred.split('·')[0];
+            const parts=teams.split('-');
+            if(parts.length<2) continue;
+            const pt1=norm(ESP_TO_EN_SERVER[norm(parts[0].trim())]||norm(parts[0].trim()));
+            const pt2=norm(ESP_TO_EN_SERVER[norm(parts.slice(1).join('-').trim())]||norm(parts.slice(1).join('-').trim()));
+            if((pt1===nt1&&pt2===nt2)||(pt1===nt2&&pt2===nt1)){
+              if(!allKOPreds[pname]) allKOPreds[pname]=pd.pred;
+            }
+          }
+        }
+        players=Object.entries(allKOPreds).map(([name,pred])=>({
+          name,pred,
+          pts:calcKOScore(pred,espnResult,m.max_pts,m.bonus)||0
+        })).sort((a,b)=>(b.pts||0)-(a.pts||0));
+      } else if(isKO){
+        // Partido KO pendiente: mostrar solo quienes tienen esa llave predicha
+        // Usar el slot actual del porra como referencia
+        players=Object.entries(m.predictions).map(([name,pd])=>({
+          name,pred:pd.pred,pts:null
+        })).filter(p=>p.pred&&p.pred!=='-'&&p.pred.includes('·'));
+      } else {
+        players=Object.entries(m.predictions).map(([name,pd])=>({
+          name,pred:pd.pred,
+          pts:m.result&&m.result!=='-'?calcGroupScore(pd.pred,m.result,m.bonus):null
+        })).sort((a,b)=>(b.pts||0)-(a.pts||0));
+      }
       return {
         match:m.name,date:m.date,bonus:m.bonus,maxPts:m.max_pts,
         match_type:m.match_type||'group_score',
@@ -691,12 +753,7 @@ app.get('/api/pronosticos', async(req,res)=>{
           ? `${espnResult.homeTeam} ${espnResult.homeScore}-${espnResult.awayScore} ${espnResult.awayTeam}`
           : (m.result||'-'),
         status:m.liveStatus||'NS',
-        players:Object.entries(m.predictions).map(([name,pd])=>({
-          name,pred:pd.pred,
-          pts:isKO
-            ?(espnResult?calcKOScore(pd.pred,espnResult,m.max_pts,m.bonus)||0:null)
-            :(m.result&&m.result!=='-'?calcGroupScore(pd.pred,m.result,m.bonus):null)
-        })).sort((a,b)=>(b.pts||0)-(a.pts||0))
+        players
       };
     });
     const dates=Array.isArray(dateStr)?dateStr:[dateStr];
