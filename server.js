@@ -107,26 +107,41 @@ async function refreshWC() {
     console.log('[WC] Equipos en rondas KO:', Object.entries(teamInRound).map(([t,r])=>`${t}(${[...r].join(',')})`).join(' '));
 
     for(const m of (data.matches||[])) {
-      const hasScore = m.score?.ft?.length===2;
-      const hScore = hasScore ? m.score.ft[0] : null;
-      const aScore = hasScore ? m.score.ft[1] : null;
+      // Para partidos KO usar el resultado de 120 min (et) si existe (hubo alargue)
+      // Si no hubo alargue, et no existe y se usa ft (90 min = resultado final)
+      const isKORoundForScore = m.round && !m.group;
+      const useET = isKORoundForScore && m.score?.et?.length===2;
+      const hasScore = useET ? true : (m.score?.ft?.length===2);
+      const hScore = useET ? m.score.et[0] : (hasScore ? m.score.ft[0] : null);
+      const aScore = useET ? m.score.et[1] : (hasScore ? m.score.ft[1] : null);
       const allPorraMatches = [...PORRA.group_score, ...PORRA.ko_score];
       const excelName = findExcelMatchForESPN(m.team1, m.team2, allPorraMatches);
       if(hasScore) {
         const key = `${m.team1}-${m.team2}`;
         const isKORound = m.round && !m.group;
-        // Si hay empate en partido KO, determinar ganador por rondas posteriores
+        // Si hay empate en partido KO, determinar ganador por penales
         let winner = null, loser = null;
         if(isKORound && hasScore && hScore===aScore) {
-          // Empate — ver quién aparece en la ronda siguiente
-          const t1InNext = teamInRound[m.team1] && [...teamInRound[m.team1]].some(r=>koRounds.indexOf(r)>koRounds.indexOf(m.round));
-          const t2InNext = teamInRound[m.team2] && [...teamInRound[m.team2]].some(r=>koRounds.indexOf(r)>koRounds.indexOf(m.round));
-          // También usar PENALTY_WINNERS como fallback
-          if(t1InNext) { winner=m.team1; loser=m.team2; }
-          else if(t2InNext) { winner=m.team2; loser=m.team1; }
-          else if(PENALTY_WINNERS[key]) { winner=PENALTY_WINNERS[key]; loser=winner===m.team1?m.team2:m.team1; }
-          else if(PENALTY_WINNERS[`${m.team2}-${m.team1}`]) { winner=PENALTY_WINNERS[`${m.team2}-${m.team1}`]; loser=winner===m.team1?m.team2:m.team1; }
-          if(winner) console.log(`[WC] Penalty winner detected: ${winner} (beat ${loser})`);
+          // PRIORIDAD 1: openfootball score.p = [home_pens, away_pens]
+          if(m.score?.p && m.score.p.length===2){
+            const [pH, pA] = m.score.p;
+            if(pH > pA) { winner=m.team1; loser=m.team2; }
+            else if(pA > pH) { winner=m.team2; loser=m.team1; }
+            if(winner) console.log(`[WC] Penales (openfootball): ${winner} ${Math.max(pH,pA)}-${Math.min(pH,pA)} ${loser}`);
+          }
+          // PRIORIDAD 2: equipo aparece en ronda siguiente
+          if(!winner){
+            const t1InNext = teamInRound[m.team1] && [...teamInRound[m.team1]].some(r=>koRounds.indexOf(r)>koRounds.indexOf(m.round));
+            const t2InNext = teamInRound[m.team2] && [...teamInRound[m.team2]].some(r=>koRounds.indexOf(r)>koRounds.indexOf(m.round));
+            if(t1InNext) { winner=m.team1; loser=m.team2; }
+            else if(t2InNext) { winner=m.team2; loser=m.team1; }
+          }
+          // PRIORIDAD 3: override manual
+          if(!winner){
+            if(PENALTY_WINNERS[key]) { winner=PENALTY_WINNERS[key]; loser=winner===m.team1?m.team2:m.team1; }
+            else if(PENALTY_WINNERS[`${m.team2}-${m.team1}`]) { winner=PENALTY_WINNERS[`${m.team2}-${m.team1}`]; loser=winner===m.team1?m.team2:m.team1; }
+          }
+          if(winner) console.log(`[WC] Penalty winner: ${winner} (beat ${loser})`);
         }
         results[key]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2,isKO:isKORound,penaltyWinner:winner};
         if(excelName) results[excelName]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2,isKO:isKORound,penaltyWinner:winner};
@@ -203,8 +218,10 @@ async function refreshLive() {
       for(const match of (data2.matches||[])) {
         const home = match.homeTeam?.name||'';
         const away = match.awayTeam?.name||'';
-        const hScore = match.score?.fullTime?.home;
-        const aScore = match.score?.fullTime?.away;
+        // IMPORTANTE: usar regularTime (90 min) para el marcador de puntaje
+        // fullTime puede incluir tiempo extra; penales NUNCA deben sumarse al marcador
+        const hScore = match.score?.regularTime?.home ?? match.score?.fullTime?.home;
+        const aScore = match.score?.regularTime?.away ?? match.score?.fullTime?.away;
         if(match.status !== 'FINISHED' || hScore==null) continue;
         // Detectar ganador por penales (football-data.org SÍ registra esto)
         // score.winner: HOME_TEAM | AWAY_TEAM | DRAW
@@ -213,10 +230,11 @@ async function refreshLive() {
         if(match.score?.duration === 'PENALTY_SHOOTOUT' && match.score?.winner){
           if(match.score.winner === 'HOME_TEAM') penWinner = home;
           else if(match.score.winner === 'AWAY_TEAM') penWinner = away;
-          if(penWinner) console.log(`[FOOTBALL-DATA] Penalty winner: ${penWinner} (${home} vs ${away})`);
+          if(penWinner) console.log(`[FOOTBALL-DATA] Penalty winner: ${penWinner} (${home} vs ${away}) score=${hScore}-${aScore}`);
         }
         const excelName = findExcelMatchForESPN(home, away, [...PORRA.group_score, ...PORRA.ko_score]);
-        const resultObj = {homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:home,awayTeam:away,penaltyWinner:penWinner};
+        const isKORound = !match.competition || match.stage !== 'GROUP_STAGE';
+        const resultObj = {homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:home,awayTeam:away,penaltyWinner:penWinner,isKO:isKORound};
         const key = `${home}-${away}`;
         if(!liveResults[key]) liveResults[key] = resultObj;
         if(excelName && !liveResults[excelName]) {
@@ -430,8 +448,18 @@ async function getResults() {
   // Mezclar liveResults de football-data/ESPN en results
   // SOLO para scores de partidos individuales (group_score)
   // Las posiciones de grupo y grupos cerrados usan SOLO wc.matches (openfootball)
+  // PRIORIDAD: si openfootball (wc.results) ya tiene este resultado, NO sobrescribir
+  // openfootball es más confiable para el marcador de 90 min en partidos KO
   for(const [k,v] of Object.entries(live.liveResults)){
-    if(v.status==='LIVE' || v.status==='FT') results[k]=v;
+    if(v.status!=='LIVE' && v.status!=='FT') continue;
+    if(results[k] && results[k].status==='FT' && results[k].isKO){
+      // Ya tenemos este resultado de openfootball — solo copiar penaltyWinner si falta
+      if(v.penaltyWinner && !results[k].penaltyWinner){
+        results[k] = {...results[k], penaltyWinner: v.penaltyWinner};
+      }
+      continue;
+    }
+    results[k]=v;
   }
 
   // Determinar grupos cerrados según fechas del porra.json (más preciso que contar partidos)
