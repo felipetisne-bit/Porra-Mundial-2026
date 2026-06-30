@@ -825,8 +825,9 @@ app.get('/api/analysis/:type', async(req,res)=>{
     const summary=buildJornadaSummary(jornadaMatches,standings);
     const premios=buildPremiosFecha(jornadaMatches);
     // Enriquecer summary con pts de grupos, 16avos y octavos para la crónica
-    const groupPosPtsCron={}, ko16PtsCron={}, ko8PtsCron={};
+    // (misma lógica completa que usa /api/jornada, para evitar inconsistencias)
     const dates2=Array.isArray(dateStr)?dateStr:[dateStr];
+    const groupPosPtsCron={};
     for(const m of PORRA.group_pos.filter(m=>dates2.includes(m.date))){
       const actualTeam=results[m.result]||null;
       if(!actualTeam) continue;
@@ -834,10 +835,78 @@ app.get('/api/analysis/:type', async(req,res)=>{
         if(namesMatch(pd.pred,actualTeam)) groupPosPtsCron[pName]=(groupPosPtsCron[pName]||0)+m.max_pts;
       }
     }
+    // 16avos clasificados en estas fechas
+    const groupsClosingTodayCron=new Set();
+    for(const m of PORRA.group_pos.filter(m=>dates2.includes(m.date))){
+      const match=m.result.match(/^[1-4]([A-L])$/);
+      if(match) groupsClosingTodayCron.add(match[1]);
+    }
+    const classified16TodayCron=new Set();
+    for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Dieciseisavofinalista'))){
+      const espn=results[m.name];
+      if(!espn||espn.status!=='CLASSIFIED'||!espn.team) continue;
+      const code=m.result;
+      if(code.match(/^[12][A-L]$/)){
+        const g=code[1];
+        if(groupsClosingTodayCron.has(g)) classified16TodayCron.add(espn.team);
+      }
+    }
+    const ko16PtsCron={};
+    if(classified16TodayCron.size>0){
+      const tracked16=new Set();
+      for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Dieciseisavofinalista'))){
+        for(const [pName,pd] of Object.entries(m.predictions)){
+          let hit=false;
+          for(const actual of classified16TodayCron){
+            if((calcTeamPred(pd.pred,actual,2)||0)>0){hit=true;break;}
+          }
+          if(!hit) continue;
+          const key=pName+'_16_'+(pd.pred||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+          if(tracked16.has(key)) continue;
+          tracked16.add(key);
+          ko16PtsCron[pName]=(ko16PtsCron[pName]||0)+2;
+        }
+      }
+    }
+    // Octavos clasificados en estas fechas
+    const r16TodaySlotsCron = new Set(
+      PORRA.ko_score.filter(m=>dates2.includes(m.date)).map(m=>m.name)
+    );
+    const classified8TodayCron=new Set();
+    for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Octavofinalista'))){
+      const espn=results[m.name];
+      if(!espn||espn.status!=='CLASSIFIED'||!espn.team) continue;
+      const w = m.result;
+      if(W_TO_MATCH && W_TO_MATCH[w]){
+        const slot16 = W_TO_MATCH[w];
+        if(r16TodaySlotsCron.has(slot16)){
+          classified8TodayCron.add(espn.team);
+        }
+      }
+    }
+    const ko8PtsCron={};
+    if(classified8TodayCron.size>0){
+      const tracked8=new Set();
+      for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Octavofinalista'))){
+        for(const [pName,pd] of Object.entries(m.predictions)){
+          let hit=false;
+          for(const actual of classified8TodayCron){
+            if((calcTeamPred(pd.pred,actual,m.max_pts)||0)>0){hit=true;break;}
+          }
+          if(!hit) continue;
+          const key=pName+'_8_'+(pd.pred||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+          if(tracked8.has(key)) continue;
+          tracked8.add(key);
+          ko8PtsCron[pName]=(ko8PtsCron[pName]||0)+m.max_pts;
+        }
+      }
+    }
     const summaryEnrichedCron=summary.map(p=>{
       const matchPts=p.todayPts||0;
       const gpp=groupPosPtsCron[p.name]||0;
-      const totalHoy=matchPts+gpp;
+      const k16=ko16PtsCron[p.name]||0;
+      const k8=ko8PtsCron[p.name]||0;
+      const totalHoy=matchPts+gpp+k16+k8;
       return {...p,todayPts:totalHoy};
     }).sort((a,b)=>b.todayPts-a.todayPts||b.total-a.total);
     // Formatear resultados de forma clara para evitar alucinaciones de la IA
