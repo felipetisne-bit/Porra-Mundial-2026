@@ -713,7 +713,8 @@ function renderPronosticos(pronosticos) {
     const topScore=Object.entries(scoreVotes).sort((a,b)=>b[1]-a[1])[0];
     const pct=v=>total?Math.round(v/total*100):0;
     // Results stats
-    const exactCount=hasResult?m.players.filter(p=>p.pts===m.maxPts&&m.maxPts>0).length:0;
+    const realMaxPts=m.maxPts*(m.bonus||1);
+    const exactCount=hasResult?m.players.filter(p=>p.pts===realMaxPts&&realMaxPts>0).length:0;
     const signCount=hasResult?m.players.filter(p=>p.pts>0).length:0;
     const zeroCount=hasResult?m.players.filter(p=>p.pts===0).length:0;
 
@@ -732,7 +733,7 @@ function renderPronosticos(pronosticos) {
       <div class="pron-header">
         <div>
           <div class="pron-match-name">${m.match}</div>
-          <div class="pron-meta">Bonus ×${m.bonus} · Máx ${m.maxPts} pts</div>
+          <div class="pron-meta">Bonus ×${m.bonus} · Máx ${m.maxPts*(m.bonus||1)} pts</div>
         </div>
         <div>
           <div class="pron-result">${resLabel}</div>
@@ -753,7 +754,7 @@ function renderPronosticos(pronosticos) {
               +'<div style="font-size:.7em;color:var(--mu)">'+topScore[1]+' de '+total+' jugadores ('+pct(topScore[1])+'%)</div>'
             : '<div style="font-size:.75em;color:var(--mu)">Sin pronósticos</div>'
           }
-          <div style="font-size:.68em;color:var(--mu);margin-top:6px">💰 En juego: hasta ${m.maxPts} pts</div>
+          <div style="font-size:.68em;color:var(--mu);margin-top:6px">💰 En juego: hasta ${m.maxPts*(m.bonus||1)} pts</div>
         </div>
         ${hasResult?`<div>
           <div style="font-size:.65em;font-weight:800;color:var(--mu);text-transform:uppercase;margin-bottom:5px">📋 Resultado</div>
@@ -788,7 +789,8 @@ function renderPronosticos(pronosticos) {
       })()}
       <div class="pron-grid">`;
     m.players.forEach(p=>{
-      const cls=p.pts===m.maxPts&&m.maxPts>0?'exact':p.pts>0?'sign':p.pts===0&&hasResult?'zero':'';
+      const realMaxPts2=m.maxPts*(m.bonus||1);
+      const cls=p.pts===realMaxPts2&&realMaxPts2>0?'exact':p.pts>0?'sign':p.pts===0&&hasResult?'zero':'';
       html+=`<div class="pron-cell ${cls}">
         <span class="pron-name">${p.name}</span>
         <span class="pron-pred">${p.pred}</span>
