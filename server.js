@@ -94,19 +94,42 @@ async function refreshWC() {
   const results={}, matches=[];
   try {
     const data = await fetchJSON('https://raw.githubusercontent.com/openfootball/world-cup.json/master/2026/worldcup.json');
+    
+    // Indexar qué equipos aparecen en cada ronda KO posterior
+    // Si un equipo aparece en Round of 16, ganó su Round of 32 (aunque fuera por penales)
+    const teamInRound = {}; // team -> set of rounds they appear in
+    const koRounds = ['Round of 16','Quarter-final','Semi-final','Final','Match for third place'];
+    for(const m of (data.matches||[])) {
+      if(!koRounds.includes(m.round)) continue;
+      if(m.team1) { if(!teamInRound[m.team1]) teamInRound[m.team1]=new Set(); teamInRound[m.team1].add(m.round); }
+      if(m.team2) { if(!teamInRound[m.team2]) teamInRound[m.team2]=new Set(); teamInRound[m.team2].add(m.round); }
+    }
+    console.log('[WC] Equipos en rondas KO:', Object.entries(teamInRound).map(([t,r])=>`${t}(${[...r].join(',')})`).join(' '));
+
     for(const m of (data.matches||[])) {
       const hasScore = m.score?.ft?.length===2;
       const hScore = hasScore ? m.score.ft[0] : null;
       const aScore = hasScore ? m.score.ft[1] : null;
-      // Buscar en group_score Y ko_score
       const allPorraMatches = [...PORRA.group_score, ...PORRA.ko_score];
       const excelName = findExcelMatchForESPN(m.team1, m.team2, allPorraMatches);
       if(hasScore) {
-        // Guardar siempre por nombre de equipos para búsqueda directa
         const key = `${m.team1}-${m.team2}`;
-        const isKORound = m.round && !m.group; // partidos KO no tienen group
-        results[key]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2,isKO:isKORound};
-        if(excelName) results[excelName]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2,isKO:isKORound};
+        const isKORound = m.round && !m.group;
+        // Si hay empate en partido KO, determinar ganador por rondas posteriores
+        let winner = null, loser = null;
+        if(isKORound && hasScore && hScore===aScore) {
+          // Empate — ver quién aparece en la ronda siguiente
+          const t1InNext = teamInRound[m.team1] && [...teamInRound[m.team1]].some(r=>koRounds.indexOf(r)>koRounds.indexOf(m.round));
+          const t2InNext = teamInRound[m.team2] && [...teamInRound[m.team2]].some(r=>koRounds.indexOf(r)>koRounds.indexOf(m.round));
+          // También usar PENALTY_WINNERS como fallback
+          if(t1InNext) { winner=m.team1; loser=m.team2; }
+          else if(t2InNext) { winner=m.team2; loser=m.team1; }
+          else if(PENALTY_WINNERS[key]) { winner=PENALTY_WINNERS[key]; loser=winner===m.team1?m.team2:m.team1; }
+          else if(PENALTY_WINNERS[`${m.team2}-${m.team1}`]) { winner=PENALTY_WINNERS[`${m.team2}-${m.team1}`]; loser=winner===m.team1?m.team2:m.team1; }
+          if(winner) console.log(`[WC] Penalty winner detected: ${winner} (beat ${loser})`);
+        }
+        results[key]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2,isKO:isKORound,penaltyWinner:winner};
+        if(excelName) results[excelName]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2,isKO:isKORound,penaltyWinner:winner};
       }
       matches.push({
         espnHome:m.team1, espnAway:m.team2,
@@ -183,9 +206,21 @@ async function refreshLive() {
         const hScore = match.score?.fullTime?.home;
         const aScore = match.score?.fullTime?.away;
         if(match.status !== 'FINISHED' || hScore==null) continue;
-        const excelName = findExcelMatchForESPN(home, away, PORRA.group_score);
+        // Detectar ganador por penales (football-data.org SÍ registra esto)
+        // score.winner: HOME_TEAM | AWAY_TEAM | DRAW
+        // score.duration: PENALTY_SHOOTOUT indica que hubo penales
+        let penWinner = null;
+        if(match.score?.duration === 'PENALTY_SHOOTOUT' && match.score?.winner){
+          if(match.score.winner === 'HOME_TEAM') penWinner = home;
+          else if(match.score.winner === 'AWAY_TEAM') penWinner = away;
+          if(penWinner) console.log(`[FOOTBALL-DATA] Penalty winner: ${penWinner} (${home} vs ${away})`);
+        }
+        const excelName = findExcelMatchForESPN(home, away, [...PORRA.group_score, ...PORRA.ko_score]);
+        const resultObj = {homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:home,awayTeam:away,penaltyWinner:penWinner};
+        const key = `${home}-${away}`;
+        if(!liveResults[key]) liveResults[key] = resultObj;
         if(excelName && !liveResults[excelName]) {
-          liveResults[excelName]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:home,awayTeam:away};
+          liveResults[excelName] = resultObj;
         }
       }
     } catch(e){ console.error('[football-data]',e.message); }
@@ -290,6 +325,14 @@ function getGroupPositionResults(matches, all12Done, closedGroups) {
 }
 
 // ─── KO Match resolver ─────────────────────────────────────────────────
+// ─── Override manual para resultados de penales ────────────────────────
+// Cuando un partido termina en empate y se decide por penales,
+// agregar aquí el ganador manualmente.
+// Formato: 'Team1-Team2': 'Ganador'  (nombres en inglés como en openfootball)
+const PENALTY_WINNERS = {
+  'Germany-Paraguay': 'Paraguay',  // 29 jun 2026 - ganó Paraguay por penales
+};
+
 const W_TO_MATCH = {
   'W73':'2A-2B','W74':'1C-2F','W75':'1E-3ABCDF','W76':'1F-2C',
   'W77':'2E-2I','W78':'1I-3CDFGH','W79':'1A-3CEFHI','W80':'1L-3EHIJK',
@@ -346,8 +389,13 @@ function resolveKOCode(code, allResults, groupPos) {
       }
     }
     if (!match || match.status !== 'FT') return null;
-    return match.homeScore > match.awayScore ? match.homeTeam :
-           match.awayScore > match.homeScore ? match.awayTeam : null;
+    if (match.homeScore > match.awayScore) return match.homeTeam;
+    if (match.awayScore > match.homeScore) return match.awayTeam;
+    // Empate → usar penaltyWinner detectado automáticamente, o PENALTY_WINNERS manual
+    if (match.penaltyWinner) return match.penaltyWinner;
+    const penKey1 = `${match.homeTeam}-${match.awayTeam}`;
+    const penKey2 = `${match.awayTeam}-${match.homeTeam}`;
+    return PENALTY_WINNERS[penKey1] || PENALTY_WINNERS[penKey2] || null;
   }
   // Perdedor de partido KO
   if (code.startsWith('L')) {
