@@ -647,36 +647,43 @@ async function generateGPTAnalysis(type, context) {
       impacto:`Eres el analista de una porra de fútbol entre amigos chilenos. Con estos datos genera un análisis de impacto en español informal y entretenido (máx 300 palabras). Incluye: qué partidos generaron más movimiento, grupos de puntos, caída del día, partido bonus más decisivo. IMPORTANTE: USA SOLO los resultados que aparecen en los datos. Si un partido dice "Pendiente", NO inventes resultado. Solo menciona resultados con status "FT".
 
 Datos: ${JSON.stringify(context)}`,
-      cronica:`Actúa como un escritor ganador de un gran premio de literatura deportiva. Eres el cronista de una porra del Mundial entre amigos chilenos.
+      cronica:`Eres el cronista oficial de la porra del Mundial. Tu trabajo es escribir la novela diaria de esta competencia entre 50 participantes. Los partidos son solo el escenario. La historia real ocurre entre ellos.
 
-REGLA CRÍTICA ABSOLUTA: SOLO menciona resultados de partidos que aparezcan en el campo "partidos" con resultado real. NUNCA inventes marcadores ni resultados. Si un partido no tiene resultado confirmado, no lo menciones como finalizado.
+REGLA ABSOLUTA: SOLO usa resultados del campo "partidos". NUNCA inventes marcadores. Si un partido no tiene resultado confirmado, no lo menciones como finalizado.
 
-TU VOZ: Inspirada en Eduardo Galeano (poesía futbolera), Osvaldo Soriano (humanidad y melancolía), Roberto Fontanarrosa (picardía), Eduardo Sacheri (nostalgia cotidiana) y Juan Villoro (inteligencia narrativa). Crea una voz PROPIA — nunca copies frases de ninguno.
+ADN DEL ESTILO (voz propia, no imitar literalmente):
+- 40% Fontanarrosa: humor inteligente, ironía, picardía, comparaciones inesperadas
+- 30% Soriano: personajes, historias pequeñas que parecen enormes, humanidad, nostalgia
+- 20% Sacheri: amistad, emoción, cotidianidad, el detalle memorable
+- 10% Galeano: SOLO para apertura o cierre, una metáfora potente, máximo un párrafo
 
-ESTRUCTURA (en este orden exacto):
+TONO: Como tres amigos comentando la fecha después de un asado. Nunca solemne. Nunca grandilocuente. Elegante pero entretenido. El lector debe sonreír constantemente.
 
-1. TÍTULO: Como capítulo de novela. Ej: "La noche en que nadie vio venir a Marruecos". Nunca repetir estructuras.
+LOS PERSONAJES: Los 50 participantes NO son nombres, son personajes con identidad. Asígnales roles según su desempeño (el estratega, el cazador de sorpresas, el eterno escolta, el puntero nervioso, el kamikaze, el sobreviviente, el que apuesta con el corazón). Hazlos evolucionar.
 
-2. APERTURA ÉPICA (no mencionar resultados aún): Reflexión literaria sobre el azar, la fe, la intuición, el destino, el fútbol.
+RUNNING GAGS: Crea bromas recurrentes basadas en patrones ("Otra vez acertó el resultado imposible y falló el más fácil", "Ya nadie entiende cómo sigue puntero"). Mientras más continuidad, mejor.
 
-3. RELATO DE LA JORNADA: Narrar como batalla. Quién ganó más puntos HOY según rankingJornada (campo ptsHoy). Los resultados de los partidos son el escenario — usa SOLO los marcadores del campo "partidos". Generar tensión, metáforas, ritmo, humor elegante.
+ESTRUCTURA:
+1. TÍTULO: Nombre de capítulo de novela. Nunca repetir estructuras.
+2. APERTURA (máx 2 párrafos): Con humor. Reflexión breve. Sin resultados aún.
+3. HISTORIA DE LA JORNADA: Narrar cómo cambió el campeonato. Usa rankingJornada (campo ptsHoy) para quién brilló HOY. Los resultados son el escenario.
+4. PROTAGONISTAS (3 a 6): No necesariamente los de más puntos. Los de mejor historia hoy.
+5. PREMIOS DEL DÍA: Categorías distintas cada día con emojis. Inventar siempre nuevas.
+6. CÓMO QUEDA EL CAMPEONATO: Interpretar rankingGeneral, no leerlo. Quién presiona, quién resiste, quién amenaza, quién sueña.
+7. CIERRE MEMORABLE: Frase que parezca final de capítulo. Con expectativa. Nunca "hasta mañana".
 
-4. LOS PERSONAJES: Los 50 participantes son protagonistas de una historia. Nombrarlos con afecto y personalidad. El líder siente presión. El colista mantiene esperanza. Nunca ridiculizar.
+PROHIBIDO: Escribir como noticia o informe. Hacer listas de resultados. Repetir metáforas. Abusar de "destino", "almas", "epopeya", "batalla", "héroes".
 
-5. PREMIO LITERARIO DE LA JORNADA: Inventar una categoría original (El Visionario, El Francotirador, El Pirata de los Penales, etc.) y otorgársela a quien más destacó hoy.
+OBJETIVO: Que todos busquen su nombre, se rían, discutan la crónica tanto como los partidos y esperen la de mañana.
 
-6. ESTADO DEL CAMPEONATO: Narrar cómo quedó según rankingGeneral. No solo posiciones — contar qué significa, quién amenaza, quién resiste, quién sueña.
-
-7. CIERRE MEMORABLE: Una frase que parezca el final de un capítulo. Deja expectativa. Nunca "hasta mañana".
-
-ESTILO: Frases cortas mezcladas con párrafos poéticos. Humor, épica, nostalgia y sorpresa. Máximo 950 palabras. La porra debe sentirse más importante que el propio Mundial.
+Entre 900 y 1.100 palabras. Ritmo. Sin párrafos eternos.
 
 Datos: ${JSON.stringify(context)}`
     };
     const data = await fetchJSON('https://api.anthropic.com/v1/messages', {
       method:'POST',
       headers:{'x-api-key':ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01','Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1600,messages:[{role:'user',content:prompts[type]}]}),
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:2000,messages:[{role:'user',content:prompts[type]}]}),
       timeout:30000
     });
     return data.content?.[0]?.text || '';
