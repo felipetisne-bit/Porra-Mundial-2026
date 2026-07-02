@@ -183,10 +183,16 @@ async function refreshLive() {
         if(!isLive&&!isFT) continue;
         const hScore=parseInt(home.score??0);
         const aScore=parseInt(away.score??0);
-        const excelName=findExcelMatchForESPN(home.team?.displayName||'',away.team?.displayName||'',PORRA.group_score);
-        if(excelName) {
-          liveResults[excelName]={homeScore:hScore,awayScore:aScore,status:isLive?'LIVE':'FT',homeTeam:home.team?.displayName,awayTeam:away.team?.displayName};
-          liveMatches.push({espnHome:home.team?.displayName,espnAway:away.team?.displayName,homeScore:hScore,awayScore:aScore,status:isLive?'LIVE':'FT',clock:isLive?event.status?.displayClock:null,date:getSantiagoDate(event.date),excelName});
+        const allPorraM=[...PORRA.group_score,...PORRA.ko_score];
+        const excelName=findExcelMatchForESPN(home.team?.displayName||'',away.team?.displayName||'',allPorraM);
+        const hn=home.team?.displayName||'', an=away.team?.displayName||'';
+        const koKey=`${hn}-${an}`;
+        const isKOLive=!excelName && (isLive||isFT);
+        if(excelName||isKOLive) {
+          const obj={homeScore:hScore,awayScore:aScore,status:isLive?'LIVE':'FT',homeTeam:hn,awayTeam:an,isKO:isKOLive};
+          if(excelName) liveResults[excelName]=obj;
+          if(isKOLive) liveResults[koKey]=obj;
+          liveMatches.push({espnHome:hn,espnAway:an,homeScore:hScore,awayScore:aScore,status:isLive?'LIVE':'FT',clock:isLive?event.status?.displayClock:null,date:getSantiagoDate(event.date),excelName,group:isKOLive?'Round of 32':''});
         }
       }
     } catch(e){ console.error('[ESPN fallback]',e.message); }
@@ -641,23 +647,36 @@ async function generateGPTAnalysis(type, context) {
       impacto:`Eres el analista de una porra de fútbol entre amigos chilenos. Con estos datos genera un análisis de impacto en español informal y entretenido (máx 300 palabras). Incluye: qué partidos generaron más movimiento, grupos de puntos, caída del día, partido bonus más decisivo. IMPORTANTE: USA SOLO los resultados que aparecen en los datos. Si un partido dice "Pendiente", NO inventes resultado. Solo menciona resultados con status "FT".
 
 Datos: ${JSON.stringify(context)}`,
-      cronica:`Eres el cronista de una porra de fútbol entre amigos chilenos. Escribe una crónica narrativa en español (máx 600 palabras) con el espíritu de Osvaldo Soriano y Eduardo Galeano.
+      cronica:`Actúa como un escritor ganador de un gran premio de literatura deportiva. Eres el cronista de una porra del Mundial entre amigos chilenos.
 
-REGLA CRÍTICA: SOLO menciona resultados de partidos que aparezcan en el campo "matches" con resultado real. NUNCA inventes marcadores ni resultados. Si un partido no tiene resultado en los datos, no lo menciones como finalizado.
+REGLA CRÍTICA ABSOLUTA: SOLO menciona resultados de partidos que aparezcan en el campo "partidos" con resultado real. NUNCA inventes marcadores ni resultados. Si un partido no tiene resultado confirmado, no lo menciones como finalizado.
 
-ESTRUCTURA OBLIGATORIA (en este orden):
-1. PRIMERO: El ranking de la jornada de hoy — quién sumó más puntos HOY (campo ptsHoy), menciona al ganador del día y los que más subieron. Usa los datos de rankingJornada.
-2. SEGUNDO: Resultados EXACTOS de los partidos del día — usa SOLO los marcadores del campo "matches.result". No cambies ni inventes scores.
-3. TERCERO: El ranking general actual — quién lidera la porra en total, quién sube y quién baja. Usa rankingGeneral.
+TU VOZ: Inspirada en Eduardo Galeano (poesía futbolera), Osvaldo Soriano (humanidad y melancolía), Roberto Fontanarrosa (picardía), Eduardo Sacheri (nostalgia cotidiana) y Juan Villoro (inteligencia narrativa). Crea una voz PROPIA — nunca copies frases de ninguno.
 
-Estilo: mezcla fútbol con nostalgia, humor porteño y picardía chilena. Nombra a los participantes con afecto.
+ESTRUCTURA (en este orden exacto):
+
+1. TÍTULO: Como capítulo de novela. Ej: "La noche en que nadie vio venir a Marruecos". Nunca repetir estructuras.
+
+2. APERTURA ÉPICA (no mencionar resultados aún): Reflexión literaria sobre el azar, la fe, la intuición, el destino, el fútbol.
+
+3. RELATO DE LA JORNADA: Narrar como batalla. Quién ganó más puntos HOY según rankingJornada (campo ptsHoy). Los resultados de los partidos son el escenario — usa SOLO los marcadores del campo "partidos". Generar tensión, metáforas, ritmo, humor elegante.
+
+4. LOS PERSONAJES: Los 50 participantes son protagonistas de una historia. Nombrarlos con afecto y personalidad. El líder siente presión. El colista mantiene esperanza. Nunca ridiculizar.
+
+5. PREMIO LITERARIO DE LA JORNADA: Inventar una categoría original (El Visionario, El Francotirador, El Pirata de los Penales, etc.) y otorgársela a quien más destacó hoy.
+
+6. ESTADO DEL CAMPEONATO: Narrar cómo quedó según rankingGeneral. No solo posiciones — contar qué significa, quién amenaza, quién resiste, quién sueña.
+
+7. CIERRE MEMORABLE: Una frase que parezca el final de un capítulo. Deja expectativa. Nunca "hasta mañana".
+
+ESTILO: Frases cortas mezcladas con párrafos poéticos. Humor, épica, nostalgia y sorpresa. Máximo 950 palabras. La porra debe sentirse más importante que el propio Mundial.
 
 Datos: ${JSON.stringify(context)}`
     };
     const data = await fetchJSON('https://api.anthropic.com/v1/messages', {
       method:'POST',
       headers:{'x-api-key':ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01','Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1100,messages:[{role:'user',content:prompts[type]}]}),
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1600,messages:[{role:'user',content:prompts[type]}]}),
       timeout:30000
     });
     return data.content?.[0]?.text || '';
