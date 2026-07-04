@@ -362,15 +362,41 @@ const PENALTY_WINNERS = {
 };
 
 const W_TO_MATCH = {
-  'W73':'2A-2B','W74':'1C-2F','W75':'1E-3ABCDF','W76':'1F-2C',
-  'W77':'2E-2I','W78':'1I-3CDFGH','W79':'1A-3CEFHI','W80':'1L-3EHIJK',
-  'W81':'1G-3AEHIJ','W82':'1D-3BEFIJ','W83':'1H-2J','W84':'2K-2L',
-  'W85':'1B-3EFGIJ','W86':'2D-2G','W87':'1J-2H','W88':'1K-3DEIJL',
-  'W89':'W73-W75','W90':'W74-W77','W91':'W76-W78','W92':'W79-W80',
-  'W93':'W83-W84','W94':'W81-W82','W95':'W86-W88','W96':'W85-W87',
-  'W97':'W89-W90','W98':'W91-W92','W99':'W93-W94','W100':'W95-W96',
-  'W101':'W97-W98','W102':'W99-W100',
-  'L101':'loser of W97-W98','L102':'loser of W99-W100'
+  // 16avos - mapeados según numeración del Excel
+  'W73':'2A-2B',       // #73 Sudáfrica vs Canadá
+  'W74':'1E-3ABCDF',   // #74 Alemania vs Paraguay
+  'W75':'1F-2C',       // #75 Países Bajos vs Marruecos
+  'W76':'1C-2F',       // #76 Brasil vs Japón
+  'W77':'2E-2I',       // #77 Costa de Marfil vs Noruega
+  'W78':'1I-3CDFGH',   // #78 Francia vs Suecia
+  'W79':'1A-3CEFHI',   // #79 México vs Ecuador
+  'W80':'1L-3EHIJK',   // #80 Inglaterra vs RD Congo
+  'W81':'1D-3BEFIJ',   // #81 Estados Unidos vs Bosnia
+  'W82':'1G-3AEHIJ',   // #82 Bélgica vs Senegal
+  'W83':'1H-2J',       // #83 España vs Austria
+  'W84':'2K-2L',       // #84 Portugal vs Croacia
+  'W85':'1B-3EFGIJ',   // #85 Suiza vs Argelia
+  'W86':'2D-2G',       // #86 Australia vs Egipto
+  'W87':'1J-2H',       // #87 Argentina vs Cabo Verde
+  'W88':'1K-3DEIJL',   // #88 Colombia vs Ghana
+  // Octavos
+  'W89':'W74-W78',     // #89 Paraguay vs Francia
+  'W90':'W73-W75',     // #90 Canadá vs Marruecos
+  'W91':'W76-W77',     // #91 Brasil vs Noruega
+  'W92':'W79-W80',     // #92 México vs Inglaterra
+  'W93':'W84-W83',     // #93 Portugal vs España
+  'W94':'W81-W82',     // #94 Estados Unidos vs Bélgica
+  'W95':'W87-W86',     // #95 Argentina vs Egipto (Australia)
+  'W96':'W85-W88',     // #96 Suiza vs Colombia
+  // Cuartos
+  'W97':'W90-W89',     // ganador Can-Mar vs ganador Par-Fra
+  'W98':'W91-W92',     // ganador Bra-Nor vs ganador Mex-Ing
+  'W99':'W93-W94',     // ganador Por-Esp vs ganador USA-Bel
+  'W100':'W95-W96',    // ganador Arg-Egi vs ganador Sui-Col
+  // Semis
+  'W101':'W97-W98',
+  'W102':'W99-W100',
+  'L101':'loser of W101','L102':'loser of W102'
 };
 
 function resolveKOCode(code, allResults, groupPos) {
