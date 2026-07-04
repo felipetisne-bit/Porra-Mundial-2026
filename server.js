@@ -681,7 +681,8 @@ function getJornadaMatches(dateStr, results) {
         ?(r?calcKOScore(pd.pred,r,m.max_pts,m.bonus)||0:null)
         :(result&&result!=='-'?calcGroupScore(pd.pred,result,m.bonus):null)
     }));
-    return {...m,name:displayName||m.name,slotName:m.name,result,liveStatus:r?.status||'NS',espnResult:r,playerResults};
+    const realStatus = m._realScore?.status || r?.status || 'NS';
+    return {...m,name:displayName||m.name,slotName:m.name,result,liveStatus:realStatus,espnResult:r,playerResults};
   });
 }
 
