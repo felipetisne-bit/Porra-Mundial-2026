@@ -598,34 +598,48 @@ function findKOResult(matchName, results) {
 }
 
 function getJornadaMatches(dateStr, results) {
-  const allScore = [...PORRA.group_score,...PORRA.ko_score];
   const dates = Array.isArray(dateStr) ? dateStr : [dateStr];
-  // Para partidos KO: incluir también slots cuyo partido real ocurrió en esta fecha
-  // aunque el slot tenga otra fecha (porra.json puede tener fechas incorrectas)
-  const seenKOSlots = new Set();
-  return allScore.filter(m=>{
-    if(dates.includes(m.date)) return true;
-    // Para KO: verificar si el partido real ocurrió en esta fecha
-    if(!PORRA.ko_score.includes(m)) return false;
-    const r = findKOResult(m.name, results);
-    if(!r || !r.status || r.status==='NS') return false;
-    // Buscar en openfootball la fecha real del partido
-    for(const wcMatch of (global._wcMatchesByTeam||[])){
-      if(wcMatch.homeTeam===r.homeTeam && wcMatch.awayTeam===r.awayTeam){
-        return dates.includes(wcMatch.date);
+  
+  // Partidos de grupo: filtrar por fecha del slot
+  const groupMatches = PORRA.group_score.filter(m=>dates.includes(m.date));
+  
+  // Partidos KO: usar los partidos REALES de openfootball para esa fecha
+  // y crear entradas virtuales para cada uno
+  const koMatchesByDate = [];
+  const seenKOPairs = new Set();
+  
+  for(const wcMatch of (global._wcMatchesByTeam||[])){
+    if(!dates.includes(wcMatch.date)) continue;
+    const key = [wcMatch.homeTeam, wcMatch.awayTeam].sort().join('-');
+    if(seenKOPairs.has(key)) continue;
+    seenKOPairs.add(key);
+    
+    // Buscar el slot del porra.json que mejor representa este partido
+    // Buscar por los equipos reales en todos los slots KO
+    let bestSlot = null;
+    for(const m of PORRA.ko_score){
+      const r = findKOResult(m.name, results);
+      if(!r) continue;
+      if(norm(r.homeTeam)===norm(wcMatch.homeTeam) && norm(r.awayTeam)===norm(wcMatch.awayTeam)){
+        bestSlot = m; break;
+      }
+      if(norm(r.homeTeam)===norm(wcMatch.awayTeam) && norm(r.awayTeam)===norm(wcMatch.homeTeam)){
+        bestSlot = m; break;
       }
     }
-    return false;
-  }).filter(m=>{
-    // Deduplicar: si dos slots resuelven al mismo partido real, solo mostrar uno
-    if(!PORRA.ko_score.includes(m)) return true;
-    const r = findKOResult(m.name, results);
-    if(!r) return true;
-    const key = `${r.homeTeam}-${r.awayTeam}`;
-    if(seenKOSlots.has(key)) return false;
-    seenKOSlots.add(key);
-    return true;
-  }).map(m=>{
+    
+    // Si no hay slot exacto, crear uno virtual con datos del partido real
+    const virtualSlot = bestSlot || {
+      name: `${wcMatch.homeTeam}-${wcMatch.awayTeam}`,
+      date: wcMatch.date,
+      max_pts: 20, bonus: 1,
+      match_type: 'ko_score',
+      predictions: {}
+    };
+    koMatchesByDate.push({...virtualSlot, _realMatch: wcMatch});
+  }
+  
+  return [...groupMatches, ...koMatchesByDate].map(m=>{
     const isKO = PORRA.ko_score.includes(m);
     let r = results[m.name];
     // Para KO, buscar por equipos si no hay resultado directo
