@@ -652,12 +652,22 @@ function getJornadaMatches(dateStr, results) {
   }
   
   return [...groupMatches, ...koMatchesByDate].map(m=>{
-    const isKO = PORRA.ko_score.includes(m);
-    let r = results[m.name];
-    // Para KO, usar resultado real si viene del partido de openfootball
-    if (isKO && m._realScore) r = {...m._realScore, homeTeam:m._realHomeTeam, awayTeam:m._realAwayTeam, isKO:true};
-    // Si no, buscar por equipos
-    if (isKO && !r) r = findKOResult(m.name, results);
+    // isKO: true para slots de ko_score (incluyendo virtuales)
+    const isKO = m.match_type === 'ko_score';
+    let r = null;
+    if (!isKO) {
+      r = results[m.name]; // grupo: buscar por nombre del slot
+    } else {
+      // Para KO, usar resultado real si viene del partido de openfootball
+      if (m._realScore) r = {...m._realScore, homeTeam:m._realHomeTeam, awayTeam:m._realAwayTeam, isKO:true};
+      // Si no, buscar por equipos en results
+      if (!r) r = findKOResult(m.name, results);
+      // Último intento: buscar por nombre real del partido
+      if (!r && m._realHomeTeam) {
+        const key = `${m._realHomeTeam}-${m._realAwayTeam}`;
+        r = results[key];
+      }
+    }
     let result = m.result;
     if (r && r.homeScore != null) result = toResultFmt(r.homeScore, r.awayScore);
     // Nombre legible para KO
