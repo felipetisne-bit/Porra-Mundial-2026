@@ -157,9 +157,11 @@ async function refreshWC() {
       });
     }
     console.log(`[WC] ${matches.length} matches, ${Object.keys(results).length} with results`);
-    // Guardar mapa de equipos->fecha para que getJornadaMatches pueda filtrar por fecha real
-    global._wcMatchesByTeam = matches.filter(m=>m.status==='FT'||m.homeScore!=null).map(m=>({
-      homeTeam:m.espnHome, awayTeam:m.espnAway, date:m.date
+    // Guardar TODOS los partidos KO (con y sin resultado) para que getJornadaMatches
+    // pueda mostrar los partidos del día aunque aún no hayan comenzado
+    global._wcMatchesByTeam = matches.filter(m=>!m.group.startsWith('Group')).map(m=>({
+      homeTeam:m.espnHome, awayTeam:m.espnAway, date:m.date,
+      homeScore:m.homeScore, awayScore:m.awayScore, status:m.status
     }));
   } catch(e){ console.error('[WC]',e.message); }
   wcCache={results,matches,ts:now};
@@ -628,21 +630,30 @@ function getJornadaMatches(dateStr, results) {
       }
     }
     
-    // Si no hay slot exacto, crear uno virtual con datos del partido real
-    const virtualSlot = bestSlot || {
+    // Usar slot encontrado o crear uno virtual
+    const slotToUse = bestSlot || {
       name: `${wcMatch.homeTeam}-${wcMatch.awayTeam}`,
       date: wcMatch.date,
       max_pts: 20, bonus: 1,
       match_type: 'ko_score',
       predictions: {}
     };
-    koMatchesByDate.push({...virtualSlot, _realMatch: wcMatch});
+    // Pasar datos del partido real para display correcto
+    koMatchesByDate.push({
+      ...slotToUse,
+      _realHomeTeam: wcMatch.homeTeam,
+      _realAwayTeam: wcMatch.awayTeam,
+      _realDate: wcMatch.date,
+      _realScore: wcMatch.homeScore!=null ? {homeScore:wcMatch.homeScore,awayScore:wcMatch.awayScore,status:wcMatch.status} : null
+    });
   }
   
   return [...groupMatches, ...koMatchesByDate].map(m=>{
     const isKO = PORRA.ko_score.includes(m);
     let r = results[m.name];
-    // Para KO, buscar por equipos si no hay resultado directo
+    // Para KO, usar resultado real si viene del partido de openfootball
+    if (isKO && m._realScore) r = {...m._realScore, homeTeam:m._realHomeTeam, awayTeam:m._realAwayTeam, isKO:true};
+    // Si no, buscar por equipos
     if (isKO && !r) r = findKOResult(m.name, results);
     let result = m.result;
     if (r && r.homeScore != null) result = toResultFmt(r.homeScore, r.awayScore);
@@ -651,11 +662,15 @@ function getJornadaMatches(dateStr, results) {
     if (isKO && r && r.homeTeam && r.awayTeam) {
       displayName = `${r.homeTeam} vs ${r.awayTeam}`;
     } else if (isKO) {
-      // Resolver códigos a nombres usando resolveSlotToTeam
-      const parts = m.name.split('-');
-      const n1 = resolveSlotToTeam(parts[0], results) || parts[0];
-      const n2 = resolveSlotToTeam(parts.slice(1).join('-'), results) || parts.slice(1).join('-');
-      displayName = `${n1} vs ${n2}`;
+      // Usar nombres reales si vienen del partido real de openfootball
+      if (m._realHomeTeam && m._realAwayTeam) {
+        displayName = `${m._realHomeTeam} vs ${m._realAwayTeam}`;
+      } else {
+        const parts = m.name.split('-');
+        const n1 = resolveSlotToTeam(parts[0], results) || parts[0];
+        const n2 = resolveSlotToTeam(parts.slice(1).join('-'), results) || parts.slice(1).join('-');
+        displayName = `${n1} vs ${n2}`;
+      }
     }
     const playerResults=Object.entries(m.predictions).map(([name,pd])=>({
       name,pred:pd.pred,
