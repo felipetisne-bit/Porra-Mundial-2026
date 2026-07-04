@@ -157,6 +157,10 @@ async function refreshWC() {
       });
     }
     console.log(`[WC] ${matches.length} matches, ${Object.keys(results).length} with results`);
+    // Guardar mapa de equipos->fecha para que getJornadaMatches pueda filtrar por fecha real
+    global._wcMatchesByTeam = matches.filter(m=>m.status==='FT'||m.homeScore!=null).map(m=>({
+      homeTeam:m.espnHome, awayTeam:m.espnAway, date:m.date
+    }));
   } catch(e){ console.error('[WC]',e.message); }
   wcCache={results,matches,ts:now};
   return wcCache;
@@ -529,8 +533,21 @@ function resolveSlotToTeam(code, results) {
   }
   // Ganador de partido KO: W73, W74...
   if (code.startsWith('W') && W_TO_MATCH[code]) {
+    // Primero buscar en results si ya está resuelto como Octavofinalista CLASSIFIED
     const r = results[code];
-    return r && r.team ? r.team : null;
+    if (r && r.team) return r.team;
+    // Si no, resolver buscando el ganador del partido correspondiente
+    // Buscar en resultados KO qué equipo ganó ese partido
+    const matchSlot = W_TO_MATCH[code];
+    if (matchSlot) {
+      const matchResult = findKOResult(matchSlot, results);
+      if (matchResult && matchResult.status === 'FT') {
+        if (matchResult.penaltyWinner) return matchResult.penaltyWinner;
+        if (matchResult.homeScore > matchResult.awayScore) return matchResult.homeTeam;
+        if (matchResult.awayScore > matchResult.homeScore) return matchResult.awayTeam;
+      }
+    }
+    return null;
   }
   return null;
 }
@@ -557,7 +574,32 @@ function findKOResult(matchName, results) {
 function getJornadaMatches(dateStr, results) {
   const allScore = [...PORRA.group_score,...PORRA.ko_score];
   const dates = Array.isArray(dateStr) ? dateStr : [dateStr];
-  return allScore.filter(m=>dates.includes(m.date)).map(m=>{
+  // Para partidos KO: incluir también slots cuyo partido real ocurrió en esta fecha
+  // aunque el slot tenga otra fecha (porra.json puede tener fechas incorrectas)
+  const seenKOSlots = new Set();
+  return allScore.filter(m=>{
+    if(dates.includes(m.date)) return true;
+    // Para KO: verificar si el partido real ocurrió en esta fecha
+    if(!PORRA.ko_score.includes(m)) return false;
+    const r = findKOResult(m.name, results);
+    if(!r || !r.status || r.status==='NS') return false;
+    // Buscar en openfootball la fecha real del partido
+    for(const wcMatch of (global._wcMatchesByTeam||[])){
+      if(wcMatch.homeTeam===r.homeTeam && wcMatch.awayTeam===r.awayTeam){
+        return dates.includes(wcMatch.date);
+      }
+    }
+    return false;
+  }).filter(m=>{
+    // Deduplicar: si dos slots resuelven al mismo partido real, solo mostrar uno
+    if(!PORRA.ko_score.includes(m)) return true;
+    const r = findKOResult(m.name, results);
+    if(!r) return true;
+    const key = `${r.homeTeam}-${r.awayTeam}`;
+    if(seenKOSlots.has(key)) return false;
+    seenKOSlots.add(key);
+    return true;
+  }).map(m=>{
     const isKO = PORRA.ko_score.includes(m);
     let r = results[m.name];
     // Para KO, buscar por equipos si no hay resultado directo
