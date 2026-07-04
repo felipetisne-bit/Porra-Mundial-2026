@@ -1070,15 +1070,18 @@ app.get('/api/pronosticos', async(req,res)=>{
     const jornadaMatches=getJornadaMatches(dateStr,results);
     const pronosticos=jornadaMatches.map(m=>{
       const isKO = m.match_type === 'ko_score';
-      // espnResult ya viene resuelto desde getJornadaMatches
-      const espnResult = isKO ? m.espnResult : null;
-      const resultFmt = isKO && espnResult
+      // Para KO: usar _realScore (del partido real de openfootball) o espnResult
+      const espnResult = isKO ? (m._realScore ? {...m._realScore, homeTeam:m._realHomeTeam, awayTeam:m._realAwayTeam} : m.espnResult) : null;
+      const resultFmt = isKO && espnResult && espnResult.homeScore!=null
         ? toResultFmt(espnResult.homeScore, espnResult.awayScore)
         : (m.result||'-');
       // Para KO: filtrar solo jugadores que predijeron exactamente esos equipos
+      // Usar _realHomeTeam/_realAwayTeam para obtener los equipos reales
+      const koTeam1 = m._realHomeTeam || (espnResult && espnResult.homeTeam) || null;
+      const koTeam2 = m._realAwayTeam || (espnResult && espnResult.awayTeam) || null;
       let players;
-      if(isKO && espnResult){
-        const nt1=norm(espnResult.homeTeam), nt2=norm(espnResult.awayTeam);
+      if(isKO && koTeam1 && koTeam2){
+        const nt1=norm(koTeam1), nt2=norm(koTeam2);
         const allKOPreds = {};
         // Recolectar todas las predicciones de todos los slots ko_score para esta fecha
         for(const ko of PORRA.ko_score){
@@ -1098,14 +1101,10 @@ app.get('/api/pronosticos', async(req,res)=>{
           name,pred,
           pts:calcKOScore(pred,espnResult,m.max_pts,m.bonus)||0
         })).sort((a,b)=>(b.pts||0)-(a.pts||0));
-      } else if(isKO){
+      } else if(isKO && koTeam1 && koTeam2){
         // Partido KO pendiente: filtrar solo quienes tienen exactamente esa llave
-        // Resolver los equipos del slot actual
-        const slotParts = (m.slotName||m.name).split('-');
-        const st1 = resolveSlotToTeam(slotParts[0], results);
-        const st2 = resolveSlotToTeam(slotParts.slice(1).join('-'), results);
-        const snt1 = st1 ? norm(st1) : null;
-        const snt2 = st2 ? norm(st2) : null;
+        const snt1 = norm(koTeam1);
+        const snt2 = norm(koTeam2);
         const allKOPredsPending = {};
         for(const ko of PORRA.ko_score){
           for(const [pname,pd] of Object.entries(ko.predictions)){
