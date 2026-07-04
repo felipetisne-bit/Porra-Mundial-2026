@@ -639,13 +639,16 @@ function getJornadaMatches(dateStr, results) {
       predictions: {}
     };
     // Pasar datos del partido real para display correcto
-    koMatchesByDate.push({
+    // SIEMPRE forzar nombre real del partido de openfootball
+    const koSlot = {
       ...slotToUse,
+      name: `${wcMatch.homeTeam} vs ${wcMatch.awayTeam}`,
       _realHomeTeam: wcMatch.homeTeam,
       _realAwayTeam: wcMatch.awayTeam,
       _realDate: wcMatch.date,
       _realScore: wcMatch.homeScore!=null ? {homeScore:wcMatch.homeScore,awayScore:wcMatch.awayScore,status:wcMatch.status} : null
-    });
+    };
+    koMatchesByDate.push(koSlot);
   }
   
   return [...groupMatches, ...koMatchesByDate].map(m=>{
