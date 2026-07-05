@@ -687,6 +687,7 @@ function getJornadaMatches(dateStr, results) {
     const koSlot = {
       ...slotToUse,
       name: `${wcMatch.homeTeam} vs ${wcMatch.awayTeam}`,
+      _slotOrigMaxPts: slotToUse.max_pts,  // max_pts original del slot encontrado
       max_pts: correctMaxPts,  // SIEMPRE usar max_pts de la ronda real
       bonus: slotToUse.bonus || 1,
       _realHomeTeam: wcMatch.homeTeam,
@@ -737,7 +738,15 @@ function getJornadaMatches(dateStr, results) {
       pts:isKO
         ?(r?calcKOScore(pd.pred,r,m.max_pts,m.bonus)||0:null)
         :(result&&result!=='-'?calcGroupScore(pd.pred,result,m.bonus):null)
-    }));
+    })).map(pr=>{
+      // Para partidos KO: validar que la predicción sea del slot de la ronda correcta
+      // Si el slot original (slotToUse) tiene max_pts diferente al partido real, 
+      // la predicción es de otra ronda → 0 pts
+      if(isKO && pr.pts && m._slotOrigMaxPts && m._slotOrigMaxPts !== m.max_pts){
+        return {...pr, pts:0};
+      }
+      return pr;
+    });
     const realStatus = m._realScore?.status || r?.status || 'NS';
     return {...m,name:displayName||m.name,slotName:m.name,result,liveStatus:realStatus,espnResult:r,playerResults};
   });
@@ -1142,10 +1151,9 @@ app.get('/api/pronosticos', async(req,res)=>{
         const nt1=norm(koTeam1), nt2=norm(koTeam2);
         const allKOPreds = {};
         // Solo considerar predicciones del slot de la MISMA RONDA que el partido real
-        const matchRound = m._realRound || (espnResult && espnResult.round) || null;
-        // Si no tenemos el round exacto, usar el max_pts del slot virtual como referencia
-        const realMatchPts = m.max_pts || 20; // max_pts del slot que representa este partido
-        const realMatchRound = matchRound || getSlotRoundByPts(realMatchPts);
+        // Usar m.max_pts que ya fue corregido al valor correcto de la ronda real en getJornadaMatches
+        const realMatchPts = m.max_pts || 20;
+        const realMatchRound = getSlotRoundByPts(realMatchPts);
         for(const ko of PORRA.ko_score){
           // Validar ronda: el slot debe ser de la misma ronda que el partido real
           const slotRound = getSlotRoundByPts(ko.max_pts);
