@@ -1216,8 +1216,12 @@ app.get('/api/pronosticos', async(req,res)=>{
             team2 = vsParts[1].trim();
           }
         }
-        // Determinar la ronda KO siguiente (para buscar en ko_team)
-        const nextRound = 'Octavofinalista';
+        // Determinar la ronda KO siguiente según el partido actual
+        const matchRoundForNext = m._realRound || (espnResult && espnResult.round) || 'Round of 32';
+        const nextRound = matchRoundForNext === 'Round of 32' ? 'Octavofinalista' :
+                         matchRoundForNext === 'Round of 16' ? 'Cuartofinalista' :
+                         matchRoundForNext === 'Quarter-final' ? 'Semifinalista' :
+                         matchRoundForNext === 'Semi-final' ? 'Finalista' : 'Octavofinalista';
         const nextSlots = PORRA.ko_team.filter(m=>m.name.startsWith(nextRound));
         console.log(`[TEAM_PLAYERS] team1=${team1} team2=${team2} nextSlots=${nextSlots.length}`);
         if(team1){
@@ -1255,6 +1259,9 @@ app.get('/api/pronosticos', async(req,res)=>{
           : (m.result||'-'),
         status:m.liveStatus||'NS',
         players,
+        nextRoundLabel: nextRound === 'Octavofinalista' ? 'Octavos' :
+                        nextRound === 'Cuartofinalista' ? 'Cuartos' :
+                        nextRound === 'Semifinalista' ? 'Semis' : 'Final',
         team1Players, team2Players
       };
     });
