@@ -1152,25 +1152,18 @@ app.get('/api/pronosticos', async(req,res)=>{
       let players;
       if(isKO && koTeam1 && koTeam2){
         const nt1=norm(koTeam1), nt2=norm(koTeam2);
+        // Usar SOLO las predicciones del koSlot (m.predictions)
+        // que ya tiene predictions:{} si el slot es de ronda incorrecta
         const allKOPreds = {};
-        // Solo considerar predicciones del slot de la MISMA RONDA que el partido real
-        // Usar m.max_pts que ya fue corregido al valor correcto de la ronda real en getJornadaMatches
-        const realMatchPts = m.max_pts || 20;
-        const realMatchRound = getSlotRoundByPts(realMatchPts);
-        for(const ko of PORRA.ko_score){
-          // Validar ronda: el slot debe ser de la misma ronda que el partido real
-          const slotRound = getSlotRoundByPts(ko.max_pts);
-          if(realMatchRound && slotRound && realMatchRound !== slotRound) continue;
-          for(const [pname,pd] of Object.entries(ko.predictions)){
-            if(!pd.pred||!pd.pred.includes('·')) continue;
-            const teams=pd.pred.split('·')[0];
-            const parts=teams.split('-');
-            if(parts.length<2) continue;
-            const pt1=norm(ESP_TO_EN_SERVER[norm(parts[0].trim())]||norm(parts[0].trim()));
-            const pt2=norm(ESP_TO_EN_SERVER[norm(parts.slice(1).join('-').trim())]||norm(parts.slice(1).join('-').trim()));
-            if((pt1===nt1&&pt2===nt2)||(pt1===nt2&&pt2===nt1)){
-              if(!allKOPreds[pname]) allKOPreds[pname]={pred:pd.pred,maxPts:ko.max_pts,bonus:ko.bonus};
-            }
+        for(const [pname,pd] of Object.entries(m.predictions||{})){
+          if(!pd.pred||!pd.pred.includes('·')) continue;
+          const teams=pd.pred.split('·')[0];
+          const parts=teams.split('-');
+          if(parts.length<2) continue;
+          const pt1=norm(ESP_TO_EN_SERVER[norm(parts[0].trim())]||norm(parts[0].trim()));
+          const pt2=norm(ESP_TO_EN_SERVER[norm(parts.slice(1).join('-').trim())]||norm(parts.slice(1).join('-').trim()));
+          if((pt1===nt1&&pt2===nt2)||(pt1===nt2&&pt2===nt1)){
+            if(!allKOPreds[pname]) allKOPreds[pname]={pred:pd.pred,maxPts:m.max_pts,bonus:m.bonus||1};
           }
         }
         players=Object.entries(allKOPreds).map(([name,p])=>({
@@ -1178,23 +1171,20 @@ app.get('/api/pronosticos', async(req,res)=>{
           pts:calcKOScore(p.pred,espnResult,p.maxPts,p.bonus)||0
         })).sort((a,b)=>(b.pts||0)-(a.pts||0));
       } else if(isKO && koTeam1 && koTeam2){
-        // Partido KO pendiente: filtrar solo quienes tienen exactamente esa llave
+        // Partido KO pendiente: usar SOLO m.predictions (ya filtrado por ronda)
         const snt1 = norm(koTeam1);
         const snt2 = norm(koTeam2);
         const allKOPredsPending = {};
-        for(const ko of PORRA.ko_score){
-          for(const [pname,pd] of Object.entries(ko.predictions)){
-            if(!pd.pred||!pd.pred.includes('·')) continue;
-            const teams=pd.pred.split('·')[0];
-            const parts=teams.split('-');
-            if(parts.length<2) continue;
-            const pt1=norm(ESP_TO_EN_SERVER[norm(parts[0].trim())]||norm(parts[0].trim()));
-            const pt2=norm(ESP_TO_EN_SERVER[norm(parts.slice(1).join('-').trim())]||norm(parts.slice(1).join('-').trim()));
-            // Si tenemos equipos resueltos, filtrar por ellos
-            if(snt1&&snt2){
-              if((pt1===snt1&&pt2===snt2)||(pt1===snt2&&pt2===snt1)){
-                if(!allKOPredsPending[pname]) allKOPredsPending[pname]=pd.pred;
-              }
+        for(const [pname,pd] of Object.entries(m.predictions||{})){
+          if(!pd.pred||!pd.pred.includes('·')) continue;
+          const teams=pd.pred.split('·')[0];
+          const parts=teams.split('-');
+          if(parts.length<2) continue;
+          const pt1=norm(ESP_TO_EN_SERVER[norm(parts[0].trim())]||norm(parts[0].trim()));
+          const pt2=norm(ESP_TO_EN_SERVER[norm(parts.slice(1).join('-').trim())]||norm(parts.slice(1).join('-').trim()));
+          if(snt1&&snt2){
+            if((pt1===snt1&&pt2===snt2)||(pt1===snt2&&pt2===snt1)){
+              if(!allKOPredsPending[pname]) allKOPredsPending[pname]=pd.pred;
             }
           }
         }
