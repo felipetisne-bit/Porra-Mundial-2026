@@ -162,7 +162,8 @@ async function refreshWC() {
     // pueda mostrar los partidos del día aunque aún no hayan comenzado
     global._wcMatchesByTeam = matches.filter(m=>!m.group.startsWith('Group')).map(m=>({
       homeTeam:m.espnHome, awayTeam:m.espnAway, date:m.date,
-      homeScore:m.homeScore, awayScore:m.awayScore, status:m.status
+      homeScore:m.homeScore, awayScore:m.awayScore, status:m.status,
+      round:m.group  // group field tiene el round para partidos KO (Round of 16, etc.)
     }));
   } catch(e){ console.error('[WC]',e.message); }
   wcCache={results,matches,ts:now};
@@ -675,13 +676,24 @@ function getJornadaMatches(dateStr, results) {
     };
     // Pasar datos del partido real para display correcto
     // SIEMPRE forzar nombre real del partido de openfootball
+    // Determinar max_pts y bonus correctos según la ronda real del partido
+    // (el bestSlot puede ser de una ronda diferente)
+    const realRound = wcMatch.group || null;
+    const correctMaxPts = realRound === 'Round of 16' ? 20 :
+                         realRound === 'Quarter-final' ? 31 :
+                         realRound === 'Semi-final' ? 48 :
+                         realRound === 'Match for third place' ? 62 :
+                         realRound === 'Final' ? 84 : (slotToUse.max_pts || 20);
     const koSlot = {
       ...slotToUse,
       name: `${wcMatch.homeTeam} vs ${wcMatch.awayTeam}`,
+      max_pts: correctMaxPts,  // SIEMPRE usar max_pts de la ronda real
+      bonus: slotToUse.bonus || 1,
       _realHomeTeam: wcMatch.homeTeam,
       _realAwayTeam: wcMatch.awayTeam,
       _realDate: wcMatch.date,
-      _realScore: wcMatch.homeScore!=null ? {homeScore:wcMatch.homeScore,awayScore:wcMatch.awayScore,status:wcMatch.status} : null
+      _realRound: realRound,
+      _realScore: wcMatch.homeScore!=null ? {homeScore:wcMatch.homeScore,awayScore:wcMatch.awayScore,status:wcMatch.status,round:realRound} : null
     };
     koMatchesByDate.push(koSlot);
   }
@@ -1130,11 +1142,14 @@ app.get('/api/pronosticos', async(req,res)=>{
         const nt1=norm(koTeam1), nt2=norm(koTeam2);
         const allKOPreds = {};
         // Solo considerar predicciones del slot de la MISMA RONDA que el partido real
-        const matchRound = espnResult && espnResult.round ? espnResult.round : null;
+        const matchRound = m._realRound || (espnResult && espnResult.round) || null;
+        // Si no tenemos el round exacto, usar el max_pts del slot virtual como referencia
+        const realMatchPts = m.max_pts || 20; // max_pts del slot que representa este partido
+        const realMatchRound = matchRound || getSlotRoundByPts(realMatchPts);
         for(const ko of PORRA.ko_score){
           // Validar ronda: el slot debe ser de la misma ronda que el partido real
           const slotRound = getSlotRoundByPts(ko.max_pts);
-          if(matchRound && slotRound && matchRound !== slotRound) continue;
+          if(realMatchRound && slotRound && realMatchRound !== slotRound) continue;
           for(const [pname,pd] of Object.entries(ko.predictions)){
             if(!pd.pred||!pd.pred.includes('·')) continue;
             const teams=pd.pred.split('·')[0];
