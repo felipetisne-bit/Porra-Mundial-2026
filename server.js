@@ -679,11 +679,14 @@ function getJornadaMatches(dateStr, results) {
     // Determinar max_pts y bonus correctos según la ronda real del partido
     // (el bestSlot puede ser de una ronda diferente)
     const realRound = wcMatch.group || null;
+    // correctMaxPts SIEMPRE basado en la ronda real, NUNCA en el bestSlot
+    // Si no hay realRound, asumir Octavos (20) como default para partidos KO
     const correctMaxPts = realRound === 'Round of 16' ? 20 :
                          realRound === 'Quarter-final' ? 31 :
                          realRound === 'Semi-final' ? 48 :
                          realRound === 'Match for third place' ? 62 :
-                         realRound === 'Final' ? 84 : (slotToUse.max_pts || 20);
+                         realRound === 'Final' ? 84 :
+                         realRound === 'Round of 32' ? 14 : 20; // default 20 para KO sin round
     // Si el bestSlot es de ronda diferente al partido real, NO usar sus predicciones
     const slotIsCorrectRound = !bestSlot || (bestSlot.max_pts === correctMaxPts);
     const koSlot = {
