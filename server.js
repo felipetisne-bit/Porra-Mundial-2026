@@ -617,16 +617,51 @@ function getJornadaMatches(dateStr, results) {
     seenKOPairs.add(key);
     
     // Buscar el slot del porra.json que mejor representa este partido
-    // Buscar por los equipos reales en todos los slots KO
+    // Buscar en results si hay un partido con estos equipos
+    const wcKey1 = `${wcMatch.homeTeam}-${wcMatch.awayTeam}`;
+    const wcKey2 = `${wcMatch.awayTeam}-${wcMatch.homeTeam}`;
+    const wcResult = results[wcKey1] || results[wcKey2];
+    
+    // Encontrar el slot del porra.json buscando predicciones que matcheen con estos equipos
     let bestSlot = null;
     for(const m of PORRA.ko_score){
-      const r = findKOResult(m.name, results);
-      if(!r) continue;
-      if(norm(r.homeTeam)===norm(wcMatch.homeTeam) && norm(r.awayTeam)===norm(wcMatch.awayTeam)){
-        bestSlot = m; break;
+      // Verificar si alguna predicción de este slot tiene estos equipos
+      let hasMatch = false;
+      for(const pd of Object.values(m.predictions)){
+        const pred = pd.pred||'';
+        if(!pred||!pred.includes('·')) continue;
+        const teams = pred.split('·')[0].split('-',1)[0];
+        // Revisar si este slot fue diseñado para este partido via resolución de equipos
+        const r = findKOResult(m.name, results);
+        if(r){
+          if((norm(r.homeTeam)===norm(wcMatch.homeTeam)&&norm(r.awayTeam)===norm(wcMatch.awayTeam))||
+             (norm(r.homeTeam)===norm(wcMatch.awayTeam)&&norm(r.awayTeam)===norm(wcMatch.homeTeam))){
+            hasMatch = true;
+          }
+        }
+        break; // solo necesitamos revisar una pred para saber si el slot resuelve
       }
-      if(norm(r.homeTeam)===norm(wcMatch.awayTeam) && norm(r.awayTeam)===norm(wcMatch.homeTeam)){
-        bestSlot = m; break;
+      if(hasMatch){ bestSlot = m; break; }
+    }
+    // Si no encontramos por resolución, buscar por predicciones que tengan estos equipos
+    if(!bestSlot){
+      const nt1=norm(wcMatch.homeTeam), nt2=norm(wcMatch.awayTeam);
+      for(const m of PORRA.ko_score){
+        let found=false;
+        for(const pd of Object.values(m.predictions)){
+          const pred=pd.pred||'';
+          if(!pred.includes('·')) continue;
+          const parts=pred.split('·')[0].split('-',1);
+          // Buscar por ESP_TO_EN_SERVER
+          const pt1=norm(ESP_TO_EN_SERVER[norm(pred.split('·')[0].split('-')[0].trim())]||norm(pred.split('·')[0].split('-')[0].trim()));
+          const rest=pred.split('·')[0].split('-').slice(1).join('-').trim();
+          const pt2=norm(ESP_TO_EN_SERVER[norm(rest)]||norm(rest));
+          if(({}).toString.call({[pt1]:1,[pt2]:1})===({}).toString.call({[nt1]:1,[nt2]:1})||
+             (pt1===nt1&&pt2===nt2)||(pt1===nt2&&pt2===nt1)){
+            found=true; break;
+          }
+        }
+        if(found){bestSlot=m;break;}
       }
     }
     
