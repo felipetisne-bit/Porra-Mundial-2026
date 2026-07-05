@@ -643,7 +643,7 @@ function getJornadaMatches(dateStr, results) {
       }
       if(hasMatch){ bestSlot = m; break; }
     }
-    // Si no encontramos por resolución, buscar por predicciones que tengan estos equipos
+    // Buscar por predicciones que tengan estos equipos
     if(!bestSlot){
       const nt1=norm(wcMatch.homeTeam), nt2=norm(wcMatch.awayTeam);
       for(const m of PORRA.ko_score){
@@ -651,13 +651,12 @@ function getJornadaMatches(dateStr, results) {
         for(const pd of Object.values(m.predictions)){
           const pred=pd.pred||'';
           if(!pred.includes('·')) continue;
-          const parts=pred.split('·')[0].split('-',1);
-          // Buscar por ESP_TO_EN_SERVER
-          const pt1=norm(ESP_TO_EN_SERVER[norm(pred.split('·')[0].split('-')[0].trim())]||norm(pred.split('·')[0].split('-')[0].trim()));
-          const rest=pred.split('·')[0].split('-').slice(1).join('-').trim();
+          const teamsStr=pred.split('·')[0];
+          const pt1raw=teamsStr.split('-')[0].trim();
+          const rest=teamsStr.split('-').slice(1).join('-').trim();
+          const pt1=norm(ESP_TO_EN_SERVER[norm(pt1raw)]||norm(pt1raw));
           const pt2=norm(ESP_TO_EN_SERVER[norm(rest)]||norm(rest));
-          if(({}).toString.call({[pt1]:1,[pt2]:1})===({}).toString.call({[nt1]:1,[nt2]:1})||
-             (pt1===nt1&&pt2===nt2)||(pt1===nt2&&pt2===nt1)){
+          if((pt1===nt1&&pt2===nt2)||(pt1===nt2&&pt2===nt1)){
             found=true; break;
           }
         }
