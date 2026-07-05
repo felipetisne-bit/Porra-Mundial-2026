@@ -688,7 +688,7 @@ function getJornadaMatches(dateStr, results) {
       ...slotToUse,
       name: `${wcMatch.homeTeam} vs ${wcMatch.awayTeam}`,
       _slotOrigMaxPts: slotToUse.max_pts,  // max_pts original del slot encontrado
-      max_pts: correctMaxPts,  // SIEMPRE usar max_pts de la ronda real
+      max_pts: correctMaxPts,  // SIEMPRE usar max_pts correcto de la ronda real
       bonus: slotToUse.bonus || 1,
       _realHomeTeam: wcMatch.homeTeam,
       _realAwayTeam: wcMatch.awayTeam,
