@@ -143,8 +143,9 @@ async function refreshWC() {
           }
           if(winner) console.log(`[WC] Penalty winner: ${winner} (beat ${loser})`);
         }
-        results[key]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2,isKO:isKORound,penaltyWinner:winner};
-        if(excelName) results[excelName]={homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2,isKO:isKORound,penaltyWinner:winner};
+        const resultObj = {homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:m.team1,awayTeam:m.team2,isKO:isKORound,penaltyWinner:winner,round:m.round||null};
+        results[key]=resultObj;
+        if(excelName) results[excelName]=resultObj;
       }
       matches.push({
         espnHome:m.team1, espnAway:m.team2,

@@ -48,6 +48,39 @@ function namesMatch(a, b) {
   return false;
 }
 
+// ─── Ronda de cada slot ko_score ────────────────────────────────────────
+// Determinar la ronda de un slot basado en su max_pts
+// Se llama con el max_pts del slot del porra.json
+function getSlotRoundByPts(maxPts) {
+  if (maxPts <= 14) return 'Round of 32';       // 16avos
+  if (maxPts <= 20) return 'Round of 16';       // Octavos
+  if (maxPts <= 31) return 'Quarter-final';     // Cuartos
+  if (maxPts <= 48) return 'Semi-final';        // Semis
+  if (maxPts <= 62) return 'Match for third place'; // 3er/4to
+  return 'Final';
+}
+
+function getSlotRound(slotName) {
+  if (!slotName) return null;
+  if (/^[12][A-L]/.test(slotName) || /^3[A-L]{2,}/.test(slotName.split('-')[0])) return 'Round of 32';
+  if (slotName.startsWith('L')) return 'Match for third place';
+  return null; // Se determinará por max_pts
+}
+
+// Ronda de cada partido real de openfootball
+function getMatchRound(homeTeam, awayTeam, espnResults) {
+  // Buscar en espnResults la ronda del partido
+  for (const [k, v] of Object.entries(espnResults)) {
+    if (!v || !v.homeTeam || !v.awayTeam) continue;
+    const nh = norm(v.homeTeam), na = norm(v.awayTeam);
+    const nt1 = norm(homeTeam), nt2 = norm(awayTeam);
+    if ((nh===nt1&&na===nt2)||(nh===nt2&&na===nt1)) {
+      return v.round || null;
+    }
+  }
+  return null;
+}
+
 // ─── Group / KO score points ─────────────────────────────────────────
 function calcScorePoints(prediction, result, bonus) {
   if (!prediction || prediction === '-' || !result || result === '-') return 0;
@@ -222,21 +255,21 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
   }
 
   // ── 3. KO score matches ────────────────────────────────────────────
-  // Lógica: da igual en qué slot esté el partido — si la predicción del jugador
-  // coincide con UN partido real que se jugó (mismos equipos, cualquier orden),
-  // se puntúa. Cada predicción exacta solo cuenta una vez por jugador.
+  // Lógica: el partido predicho debe coincidir con un partido real DE LA MISMA RONDA.
+  // Si un jugador predijo Francia-Paraguay en un slot de 16avos (Round of 32)
+  // pero ese partido se jugó en Octavos (Round of 16), NO suma puntos.
 
   // Construir índice de partidos reales KO por equipos (para búsqueda rápida)
+  // Incluye la ronda del partido para validar que la predicción sea de la ronda correcta
   const realKOMatches = {}; // key: "teamA_teamB" (normalizado, orden alfabético)
   for (const [key, espn] of Object.entries(espnResults)) {
     if (!espn || espn.status !== 'FT') continue;
     if (!espn.homeTeam || !espn.awayTeam) continue;
     // Solo incluir partidos KO reales (marcados con isKO:true en server.js)
-    // Esto evita que resultados de grupos contaminen el scoring de KO
     if (!espn.isKO) continue;
     const nt1 = norm(espn.homeTeam), nt2 = norm(espn.awayTeam);
     const sorted = [nt1, nt2].sort().join('_');
-    realKOMatches[sorted] = { espn, key };
+    realKOMatches[sorted] = { espn, key, round: espn.round || null };
   }
 
   // También agregar partidos KO de openfootball (wc.matches sin group)
@@ -263,6 +296,11 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
       // Buscar si ese partido se jugó en la realidad
       const realMatch = realKOMatches[predSorted];
       if (!realMatch) continue;
+      
+      // VALIDAR RONDA: la predicción debe ser de la misma ronda que el partido real
+      const slotRound = getSlotRoundByPts(m.max_pts) || getSlotRound(m.name);
+      const matchRound = realMatch.round;
+      if (matchRound && slotRound && matchRound !== slotRound) continue; // ronda incorrecta
 
       // Evitar doble puntaje: misma predicción de equipos, mismo jugador
       if (!koScoreTracked[pName]) koScoreTracked[pName] = new Set();
@@ -438,5 +476,6 @@ module.exports = {
   calcScorePoints, calcGroupScore, calcKOScore,
   calcTeamPred, calcPlayerAward,
   toResultFmt, parseKOPred, norm, namesMatch,
+  getSlotRound, getSlotRoundByPts,
   recalcStandings, findExcelMatchForESPN, matchESPNTeam
 };
