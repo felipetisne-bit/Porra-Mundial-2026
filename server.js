@@ -684,12 +684,15 @@ function getJornadaMatches(dateStr, results) {
                          realRound === 'Semi-final' ? 48 :
                          realRound === 'Match for third place' ? 62 :
                          realRound === 'Final' ? 84 : (slotToUse.max_pts || 20);
+    // Si el bestSlot es de ronda diferente al partido real, NO usar sus predicciones
+    const slotIsCorrectRound = !bestSlot || (bestSlot.max_pts === correctMaxPts);
     const koSlot = {
-      ...slotToUse,
+      ...(slotIsCorrectRound ? slotToUse : {}),
       name: `${wcMatch.homeTeam} vs ${wcMatch.awayTeam}`,
-      _slotOrigMaxPts: slotToUse.max_pts,  // max_pts original del slot encontrado
-      max_pts: correctMaxPts,  // SIEMPRE usar max_pts correcto de la ronda real
-      bonus: slotToUse.bonus || 1,
+      match_type: 'ko_score',
+      max_pts: correctMaxPts,
+      bonus: slotIsCorrectRound ? (slotToUse.bonus || 1) : 1,
+      predictions: slotIsCorrectRound ? (slotToUse.predictions || {}) : {},
       _realHomeTeam: wcMatch.homeTeam,
       _realAwayTeam: wcMatch.awayTeam,
       _realDate: wcMatch.date,
