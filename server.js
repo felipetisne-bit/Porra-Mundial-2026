@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const { recalcStandings, findExcelMatchForESPN, toResultFmt, calcGroupScore, calcKOScore, norm, namesMatch, calcTeamPred } = require('./scoring');
+const { recalcStandings, findExcelMatchForESPN, toResultFmt, calcGroupScore, calcKOScore, norm, namesMatch, calcTeamPred, getSlotRoundByPts } = require('./scoring');
 
 // Diccionario ESP→EN para uso en server.js
 const ESP_TO_EN_SERVER = {
@@ -1129,8 +1129,12 @@ app.get('/api/pronosticos', async(req,res)=>{
       if(isKO && koTeam1 && koTeam2){
         const nt1=norm(koTeam1), nt2=norm(koTeam2);
         const allKOPreds = {};
-        // Recolectar todas las predicciones de todos los slots ko_score para esta fecha
+        // Solo considerar predicciones del slot de la MISMA RONDA que el partido real
+        const matchRound = espnResult && espnResult.round ? espnResult.round : null;
         for(const ko of PORRA.ko_score){
+          // Validar ronda: el slot debe ser de la misma ronda que el partido real
+          const slotRound = getSlotRoundByPts(ko.max_pts);
+          if(matchRound && slotRound && matchRound !== slotRound) continue;
           for(const [pname,pd] of Object.entries(ko.predictions)){
             if(!pd.pred||!pd.pred.includes('·')) continue;
             const teams=pd.pred.split('·')[0];
@@ -1139,13 +1143,13 @@ app.get('/api/pronosticos', async(req,res)=>{
             const pt1=norm(ESP_TO_EN_SERVER[norm(parts[0].trim())]||norm(parts[0].trim()));
             const pt2=norm(ESP_TO_EN_SERVER[norm(parts.slice(1).join('-').trim())]||norm(parts.slice(1).join('-').trim()));
             if((pt1===nt1&&pt2===nt2)||(pt1===nt2&&pt2===nt1)){
-              if(!allKOPreds[pname]) allKOPreds[pname]=pd.pred;
+              if(!allKOPreds[pname]) allKOPreds[pname]={pred:pd.pred,maxPts:ko.max_pts,bonus:ko.bonus};
             }
           }
         }
-        players=Object.entries(allKOPreds).map(([name,pred])=>({
-          name,pred,
-          pts:calcKOScore(pred,espnResult,m.max_pts,m.bonus)||0
+        players=Object.entries(allKOPreds).map(([name,p])=>({
+          name,pred:p.pred,
+          pts:calcKOScore(p.pred,espnResult,p.maxPts,p.bonus)||0
         })).sort((a,b)=>(b.pts||0)-(a.pts||0));
       } else if(isKO && koTeam1 && koTeam2){
         // Partido KO pendiente: filtrar solo quienes tienen exactamente esa llave
