@@ -955,6 +955,140 @@ app.get('/api/jornada', async(req,res)=>{
         }
       }
     }
+    // Cuartofinalistas: equipos que ganaron partidos de Octavos EN ESTA FECHA
+    const r8TodaySlots = new Set(
+      PORRA.ko_score.filter(m=>dates.includes(m.date)&&m.max_pts===20).map(m=>m.name)
+    );
+    const classified4Today=new Set();
+    for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Cuartofinalista'))){
+      const espn=results[m.name];
+      if(!espn||espn.status!=='CLASSIFIED'||!espn.team) continue;
+      // El Cuartofinalista result = W89, W90, etc. que apunta a un partido de Octavos
+      // W89=W74-W78, W90=W73-W75 — verificar si ese partido de Octavos es de hoy
+      const w = m.result;
+      if(W_TO_MATCH && W_TO_MATCH[w]){
+        const slot8 = W_TO_MATCH[w]; // e.g. "W74-W77"
+        if(r8TodaySlots.has(slot8)){
+          classified4Today.add(espn.team);
+        }
+      }
+    }
+    const ko4Pts={};
+    if(classified4Today.size>0){
+      const tracked4={};
+      for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Cuartofinalista'))){
+        for(const [pName,pd] of Object.entries(m.predictions)){
+          if(!tracked4[pName]) tracked4[pName]=new Set();
+          let hit=false;
+          for(const actual of classified4Today){
+            if((calcTeamPred(pd.pred,actual,m.max_pts)||0)>0){hit=true;break;}
+          }
+          if(!hit) continue;
+          const key='4_'+(pd.pred||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+          if(tracked4[pName].has(key)) continue;
+          tracked4[pName].add(key);
+          ko4Pts[pName]=(ko4Pts[pName]||0)+m.max_pts;
+        }
+      }
+    }
+
+    // Semifinalistas: equipos que ganaron Cuartos HOY
+    const r4TodaySlots = new Set(
+      PORRA.ko_score.filter(m=>dates.includes(m.date)&&m.max_pts===31).map(m=>m.name)
+    );
+    const classified2Today=new Set();
+    for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Semifinalista'))){
+      const espn=results[m.name];
+      if(!espn||espn.status!=='CLASSIFIED'||!espn.team) continue;
+      const w=m.result;
+      if(W_TO_MATCH&&W_TO_MATCH[w]){
+        const slot=W_TO_MATCH[w];
+        if(r4TodaySlots.has(slot)) classified2Today.add(espn.team);
+      }
+    }
+    const ko2Pts={};
+    if(classified2Today.size>0){
+      const tracked2={};
+      for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Semifinalista'))){
+        for(const [pName,pd] of Object.entries(m.predictions)){
+          if(!tracked2[pName]) tracked2[pName]=new Set();
+          let hit=false;
+          for(const actual of classified2Today){
+            if((calcTeamPred(pd.pred,actual,m.max_pts)||0)>0){hit=true;break;}
+          }
+          if(!hit) continue;
+          const key='2_'+(pd.pred||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+          if(tracked2[pName].has(key)) continue;
+          tracked2[pName].add(key);
+          ko2Pts[pName]=(ko2Pts[pName]||0)+m.max_pts;
+        }
+      }
+    }
+
+    // Finalistas: equipos que ganaron Semis HOY
+    const r2TodaySlots = new Set(
+      PORRA.ko_score.filter(m=>dates.includes(m.date)&&m.max_pts===48).map(m=>m.name)
+    );
+    const classifiedFinalToday=new Set();
+    for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Finalista'))){
+      const espn=results[m.name];
+      if(!espn||espn.status!=='CLASSIFIED'||!espn.team) continue;
+      const w=m.result;
+      if(W_TO_MATCH&&W_TO_MATCH[w]){
+        const slot=W_TO_MATCH[w];
+        if(r2TodaySlots.has(slot)) classifiedFinalToday.add(espn.team);
+      }
+    }
+    const koFinalPts={};
+    if(classifiedFinalToday.size>0){
+      const trackedF={};
+      for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Finalista'))){
+        for(const [pName,pd] of Object.entries(m.predictions)){
+          if(!trackedF[pName]) trackedF[pName]=new Set();
+          let hit=false;
+          for(const actual of classifiedFinalToday){
+            if((calcTeamPred(pd.pred,actual,m.max_pts)||0)>0){hit=true;break;}
+          }
+          if(!hit) continue;
+          const key='f_'+(pd.pred||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+          if(trackedF[pName].has(key)) continue;
+          trackedF[pName].add(key);
+          koFinalPts[pName]=(koFinalPts[pName]||0)+m.max_pts;
+        }
+      }
+    }
+
+    // 3er/4to puesto: equipos que perdieron Semis HOY y juegan el partido de consolación
+    const r3TodaySlots = new Set(
+      PORRA.ko_score.filter(m=>dates.includes(m.date)&&m.max_pts===48).map(m=>m.name)
+    );
+    const classified3Today=new Set();
+    for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('3º y 4º'))){
+      const espn=results[m.name];
+      if(!espn||espn.status!=='CLASSIFIED'||!espn.team) continue;
+      // El 3º y 4º puesto viene de los perdedores de semi - verificar si la semi fue hoy
+      // Los slots de semi tienen max_pts=48
+      classified3Today.add(espn.team);
+    }
+    const ko3Pts={};
+    if(classified3Today.size>0){
+      const tracked3={};
+      for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('3º y 4º')||m.name.startsWith('3-4'))){
+        for(const [pName,pd] of Object.entries(m.predictions)){
+          if(!tracked3[pName]) tracked3[pName]=new Set();
+          let hit=false;
+          for(const actual of classified3Today){
+            if((calcTeamPred(pd.pred,actual,m.max_pts)||0)>0){hit=true;break;}
+          }
+          if(!hit) continue;
+          const key='3_'+(pd.pred||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+          if(tracked3[pName].has(key)) continue;
+          tracked3[pName].add(key);
+          ko3Pts[pName]=(ko3Pts[pName]||0)+m.max_pts;
+        }
+      }
+    }
+
     // Solo contar los que clasificaron por grupos que cerraron HOY
     const groupsClosingToday=new Set();
     for(const m of PORRA.group_pos.filter(m=>dates.includes(m.date))){
@@ -1003,8 +1137,12 @@ app.get('/api/jornada', async(req,res)=>{
       const gpp=groupPosPts[p.name]||0;
       const k16=ko16Pts[p.name]||0;
       const k8=ko8Pts[p.name]||0;
-      const totalHoy=matchPts+gpp+k16+k8;
-      return {...p, matchPts, groupPosPts:gpp, ko16Pts:k16, ko8Pts:k8, todayPts:totalHoy, variation:totalHoy};
+      const k4=ko4Pts[p.name]||0;
+      const k2=ko2Pts[p.name]||0;
+      const kF=koFinalPts[p.name]||0;
+      const k3=ko3Pts[p.name]||0;
+      const totalHoy=matchPts+gpp+k16+k8+k4+k2+kF+k3;
+      return {...p, matchPts, groupPosPts:gpp, ko16Pts:k16, ko8Pts:k8, ko4Pts:k4, ko2Pts:k2, koFinalPts:kF, ko3Pts:k3, todayPts:totalHoy, variation:totalHoy};
     });
 
     res.json({ok:true,date:primaryDate,jornadaMatches,summary:summaryEnriched,premios,availableDates:allDates,lastUpdated:new Date().toISOString()});
