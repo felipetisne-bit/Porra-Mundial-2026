@@ -775,14 +775,13 @@ function buildJornadaSummary(jornadaMatches, fullStandings) {
   return table;
 }
 
-function buildPremiosFecha(jornadaMatches) {
+function buildPremiosFecha(jornadaMatches, trueTotalsMap = null) {
   const allPreds=[];
   for(const m of jornadaMatches){
     if(!m.result||m.result==='-') continue;
     for(const pr of (m.playerResults||[]))
       allPreds.push({...pr,match:m.name,result:m.result,bonus:m.bonus,maxPts:m.max_pts});
   }
-  if(!allPreds.length) return null;
   const byPlayer={};
   for(const pr of allPreds){
     if(!byPlayer[pr.name]) byPlayer[pr.name]={name:pr.name,pts:0,exactos:[],matches:[]};
@@ -790,11 +789,22 @@ function buildPremiosFecha(jornadaMatches) {
     byPlayer[pr.name].matches.push(pr);
     if(pr.pts===pr.maxPts&&pr.maxPts>0) byPlayer[pr.name].exactos.push(pr.match);
   }
+  // Si viene el mapa de puntos TOTALES del día (partidos + clasificados por grupo/ronda),
+  // lo usamos para las categorías de puntaje agregado (líder, mala suerte, zona de peligro)
+  // en vez de solo los puntos de partidos con marcador exacto/diferencia/signo.
+  // Así un jugador que solo sumó por equipos clasificados ese día no aparece con "0 puntos".
+  if (trueTotalsMap) {
+    for (const name of Object.keys(trueTotalsMap)) {
+      if (!byPlayer[name]) byPlayer[name] = {name, pts:0, exactos:[], matches:[]};
+    }
+  }
+  if(!Object.keys(byPlayer).length) return null;
+  const totalPtsFor = (name) => trueTotalsMap ? (trueTotalsMap[name]||0) : (byPlayer[name]?.pts||0);
   const players=Object.values(byPlayer);
-  const maxPts=Math.max(...players.map(p=>p.pts));
-  const minPts=Math.min(...players.map(p=>p.pts));
-  const topPlayers=players.filter(p=>p.pts===maxPts);
-  const bottomPlayers=players.filter(p=>p.pts===minPts&&minPts<maxPts*0.4);
+  const maxPts=Math.max(...players.map(p=>totalPtsFor(p.name)));
+  const minPts=Math.min(...players.map(p=>totalPtsFor(p.name)));
+  const topPlayers=players.filter(p=>totalPtsFor(p.name)===maxPts);
+  const bottomPlayers=players.filter(p=>totalPtsFor(p.name)===minPts&&minPts<maxPts*0.4);
   const exactPlayers=players.filter(p=>p.exactos.length>0);
   const smartPlayers=players.filter(p=>p.matches.some(m=>{
     const r=m.result?.split('|'),pred=m.pred?.split('|');
@@ -804,12 +814,12 @@ function buildPremiosFecha(jornadaMatches) {
     return (rh-ra===ph-pa)&&(rh!==ph);
   })).filter(p=>!topPlayers.includes(p));
   return {
-    jugadoresFecha:{names:topPlayers.map(p=>p.name),pts:maxPts,desc:`${topPlayers.length} jugador(es) lideran con ${maxPts} pts`},
+    jugadoresFecha:{names:topPlayers.map(p=>p.name),pts:maxPts,desc:`${topPlayers.length} jugador(es) lideran con ${maxPts} pts (partidos + clasificados)`},
     reyBonus:{names:topPlayers.slice(0,1).map(p=>p.name),pts:maxPts,desc:'Máximo aprovechamiento'},
     francotiradores:{names:exactPlayers.map(p=>p.name),desc:`${exactPlayers.length} acertaron resultado exacto`},
-    malaSuerte:{names:bottomPlayers.map(p=>p.name),pts:minPts,desc:bottomPlayers.length?`Solo ${minPts} pts`:''},
+    malaSuerte:{names:bottomPlayers.map(p=>p.name),pts:minPts,desc:bottomPlayers.length?`Solo ${minPts} pts en total (partidos + clasificados)`:''},
     jugadaInteligente:{names:smartPlayers.slice(0,5).map(p=>p.name),desc:'Diferencia correcta, no el exacto'},
-    zonaPeligro:{names:players.filter(p=>p.pts===0).map(p=>p.name),desc:'Sin puntos en la jornada'}
+    zonaPeligro:{names:players.filter(p=>totalPtsFor(p.name)===0).map(p=>p.name),desc:'Sin puntos en la jornada (ni por partidos ni por clasificados)'}
   };
 }
 
@@ -823,6 +833,8 @@ Datos: ${JSON.stringify(context)}`,
       cronica:`Eres el cronista oficial de la porra del Mundial. Tu trabajo es escribir la novela diaria de esta competencia entre 50 participantes. Los partidos son solo el escenario. La historia real ocurre entre ellos.
 
 REGLA ABSOLUTA: SOLO usa resultados del campo "partidos". NUNCA inventes marcadores. Si un partido no tiene resultado confirmado, no lo menciones como finalizado.
+
+SOBRE PUNTOS: "ptsHoy" (en rankingJornada) y los puntajes de "premios" ya son el TOTAL del día: puntos por partidos con marcador MÁS puntos por equipos que clasificaron de ronda ese día. Un jugador puede sumar puntos hoy sin haber acertado ningún marcador, solo porque un equipo que puso avanzó de ronda. NUNCA digas que alguien "no sumó puntos" o tuvo "0 puntos" salvo que su ptsHoy sea exactamente 0. No confundas "no acertó ningún resultado exacto" con "no sumó puntos".
 
 ADN DEL ESTILO (voz propia, no imitar literalmente):
 - 40% Fontanarrosa: humor inteligente, ironía, picardía, comparaciones inesperadas
@@ -892,7 +904,6 @@ app.get('/api/jornada', async(req,res)=>{
     const standings=recalcStandings(PORRA,results,awardsState,honorsState);
     const jornadaMatches=getJornadaMatches(dateStr,results);
     const summary=buildJornadaSummary(jornadaMatches,standings);
-    const premios=buildPremiosFecha(jornadaMatches);
     // Incluir también fechas de partidos KO reales de openfootball
     const wcKODates = (global._wcMatchesByTeam||[]).map(m=>m.date).filter(Boolean);
     const allDates=[...new Set([
@@ -1145,6 +1156,12 @@ app.get('/api/jornada', async(req,res)=>{
       for(let x=0;x<i;x++) if(arr[x].todayPts>p.todayPts) jp=x+2;
       return {...p, jornadaPos:jp};
     });
+    // Premios/badges de la jornada calculados con el total REAL del día
+    // (partidos + clasificados por grupo/ronda), no solo puntos de partidos con marcador,
+    // para que "Zona de Peligro" no marque a alguien que sí sumó por equipos clasificados.
+    const trueTotalsMap={};
+    for(const p of summaryEnriched) trueTotalsMap[p.name]=p.todayPts||0;
+    const premios=buildPremiosFecha(jornadaMatches, trueTotalsMap);
 
     res.json({ok:true,date:primaryDate,jornadaMatches,summary:summaryEnriched,premios,availableDates:allDates,lastUpdated:new Date().toISOString()});
   } catch(e){res.status(500).json({ok:false,error:e.message});}
@@ -1161,7 +1178,6 @@ app.get('/api/analysis/:type', async(req,res)=>{
     const standings=recalcStandings(PORRA,results,awardsState,honorsState);
     const jornadaMatches=getJornadaMatches(dateStr,results);
     const summary=buildJornadaSummary(jornadaMatches,standings);
-    const premios=buildPremiosFecha(jornadaMatches);
     // Enriquecer summary con pts de grupos, 16avos y octavos para la crónica
     // (misma lógica completa que usa /api/jornada, para evitar inconsistencias)
     const dates2=Array.isArray(dateStr)?dateStr:[dateStr];
@@ -1247,6 +1263,12 @@ app.get('/api/analysis/:type', async(req,res)=>{
       const totalHoy=matchPts+gpp+k16+k8;
       return {...p,todayPts:totalHoy};
     }).sort((a,b)=>b.todayPts-a.todayPts||b.total-a.total);
+    // Premios/badges calculados con el total REAL del día (partidos + clasificados),
+    // igual que en /api/jornada, para que la crónica no diga "0 puntos" a quien sí sumó
+    // por equipos clasificados.
+    const trueTotalsMapCron={};
+    for(const p of summaryEnrichedCron) trueTotalsMapCron[p.name]=p.todayPts||0;
+    const premios=buildPremiosFecha(jornadaMatches, trueTotalsMapCron);
     // Formatear resultados de forma clara para evitar alucinaciones de la IA
     const matchesForCron = jornadaMatches.map(m=>{
       let resultStr = 'No jugado aún';
