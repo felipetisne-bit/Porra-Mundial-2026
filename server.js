@@ -955,20 +955,18 @@ app.get('/api/jornada', async(req,res)=>{
         }
       }
     }
-    // Cuartofinalistas: equipos clasificados hoy desde Octavos
-    // Usar _wcMatchesByTeam para detectar si el equipo jugó hoy en Round of 16
+    // Cuartofinalistas: ganadores de partidos de Octavos de hoy
     const classified4Today=new Set();
-    for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Cuartofinalista'))){
-      const espn=results[m.name];
-      if(!espn||espn.status!=='CLASSIFIED'||!espn.team) continue;
-      const teamNorm=norm(espn.team);
-      const playedToday=(global._wcMatchesByTeam||[]).some(wm=>{
-        if(!dates.includes(wm.date)) return false;
-        return wm.group==='Round of 16' &&
-          (norm(wm.homeTeam)===teamNorm||norm(wm.awayTeam)===teamNorm) &&
-          wm.homeScore!=null;
-      });
-      if(playedToday) classified4Today.add(espn.team);
+    for(const wm of (global._wcMatchesByTeam||[])){
+      if(!dates.includes(wm.date)) continue;
+      if(wm.group!=='Round of 16') continue;
+      if(wm.homeScore==null) continue;
+      // Determinar ganador
+      let winner=null;
+      if(wm.homeScore>wm.awayScore) winner=wm.homeTeam;
+      else if(wm.awayScore>wm.homeScore) winner=wm.awayTeam;
+      else if(wm.penaltyWinner) winner=wm.penaltyWinner;
+      if(winner) classified4Today.add(winner);
     }
     const ko4Pts={};
     if(classified4Today.size>0){
@@ -989,19 +987,17 @@ app.get('/api/jornada', async(req,res)=>{
       }
     }
 
-    // Semifinalistas: equipos clasificados hoy desde Cuartos
+    // Semifinalistas: ganadores de Cuartos de hoy
     const classified2Today=new Set();
-    for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Semifinalista'))){
-      const espn=results[m.name];
-      if(!espn||espn.status!=='CLASSIFIED'||!espn.team) continue;
-      const teamNorm=norm(espn.team);
-      const playedToday=(global._wcMatchesByTeam||[]).some(wm=>{
-        if(!dates.includes(wm.date)) return false;
-        return wm.group==='Quarter-final' &&
-          (norm(wm.homeTeam)===teamNorm||norm(wm.awayTeam)===teamNorm) &&
-          wm.homeScore!=null;
-      });
-      if(playedToday) classified2Today.add(espn.team);
+    for(const wm of (global._wcMatchesByTeam||[])){
+      if(!dates.includes(wm.date)) continue;
+      if(wm.group!=='Quarter-final') continue;
+      if(wm.homeScore==null) continue;
+      let winner=null;
+      if(wm.homeScore>wm.awayScore) winner=wm.homeTeam;
+      else if(wm.awayScore>wm.homeScore) winner=wm.awayTeam;
+      else if(wm.penaltyWinner) winner=wm.penaltyWinner;
+      if(winner) classified2Today.add(winner);
     }
     const ko2Pts={};
     if(classified2Today.size>0){
@@ -1022,19 +1018,17 @@ app.get('/api/jornada', async(req,res)=>{
       }
     }
 
-    // Finalistas: equipos clasificados hoy desde Semis
+    // Finalistas: ganadores de Semis de hoy
     const classifiedFinalToday=new Set();
-    for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('Finalista'))){
-      const espn=results[m.name];
-      if(!espn||espn.status!=='CLASSIFIED'||!espn.team) continue;
-      const teamNorm=norm(espn.team);
-      const playedToday=(global._wcMatchesByTeam||[]).some(wm=>{
-        if(!dates.includes(wm.date)) return false;
-        return wm.group==='Semi-final' &&
-          (norm(wm.homeTeam)===teamNorm||norm(wm.awayTeam)===teamNorm) &&
-          wm.homeScore!=null;
-      });
-      if(playedToday) classifiedFinalToday.add(espn.team);
+    for(const wm of (global._wcMatchesByTeam||[])){
+      if(!dates.includes(wm.date)) continue;
+      if(wm.group!=='Semi-final') continue;
+      if(wm.homeScore==null) continue;
+      let winner=null;
+      if(wm.homeScore>wm.awayScore) winner=wm.homeTeam;
+      else if(wm.awayScore>wm.homeScore) winner=wm.awayTeam;
+      else if(wm.penaltyWinner) winner=wm.penaltyWinner;
+      if(winner) classifiedFinalToday.add(winner);
     }
     const koFinalPts={};
     if(classifiedFinalToday.size>0){
