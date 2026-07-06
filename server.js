@@ -1217,11 +1217,16 @@ app.get('/api/pronosticos', async(req,res)=>{
           }
         }
         // Determinar la ronda KO siguiente según el partido actual
-        const matchRoundForNext = m._realRound || (espnResult && espnResult.round) || 'Round of 32';
-        const nextRound = matchRoundForNext === 'Round of 32' ? 'Octavofinalista' :
-                         matchRoundForNext === 'Round of 16' ? 'Cuartofinalista' :
-                         matchRoundForNext === 'Quarter-final' ? 'Semifinalista' :
-                         matchRoundForNext === 'Semi-final' ? 'Finalista' : 'Octavofinalista';
+        // Usar max_pts del partido para determinar la siguiente fase
+        // max_pts=20 → Octavos → siguiente=Cuartos
+        // max_pts=31 → Cuartos → siguiente=Semis
+        // max_pts=48 → Semis → siguiente=Final
+        // max_pts=14 → 16avos → siguiente=Octavos
+        const matchMaxPts = m.max_pts || 14;
+        nextRound = matchMaxPts <= 14 ? 'Octavofinalista' :
+                    matchMaxPts <= 20 ? 'Cuartofinalista' :
+                    matchMaxPts <= 31 ? 'Semifinalista' :
+                    matchMaxPts <= 48 ? 'Finalista' : 'Octavofinalista';
         const nextSlots = PORRA.ko_team.filter(m=>m.name.startsWith(nextRound));
         console.log(`[TEAM_PLAYERS] team1=${team1} team2=${team2} nextSlots=${nextSlots.length}`);
         if(team1){
