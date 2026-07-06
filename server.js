@@ -1201,7 +1201,7 @@ app.get('/api/pronosticos', async(req,res)=>{
         })).sort((a,b)=>(b.pts||0)-(a.pts||0));
       }
       // Para KO: calcular quiénes tienen cada equipo en octavos (cualquier slot)
-      let team1Players = [], team2Players = [];
+      let team1Players = [], team2Players = [], nextRound = 'Octavofinalista';
       if(isKO){
         // Obtener equipos del partido — desde espnResult o desde displayName
         let team1, team2;
@@ -1259,9 +1259,11 @@ app.get('/api/pronosticos', async(req,res)=>{
           : (m.result||'-'),
         status:m.liveStatus||'NS',
         players,
-        nextRoundLabel: nextRound === 'Octavofinalista' ? 'Octavos' :
+        nextRoundLabel: isKO ? (
+                        nextRound === 'Octavofinalista' ? 'Octavos' :
                         nextRound === 'Cuartofinalista' ? 'Cuartos' :
-                        nextRound === 'Semifinalista' ? 'Semis' : 'Final',
+                        nextRound === 'Semifinalista' ? 'Semis' : 'Final'
+                        ) : null,
         team1Players, team2Players
       };
     });
