@@ -678,7 +678,7 @@ function getJornadaMatches(dateStr, results) {
     // SIEMPRE forzar nombre real del partido de openfootball
     // Determinar max_pts y bonus correctos según la ronda real del partido
     // (el bestSlot puede ser de una ronda diferente)
-    const realRound = wcMatch.group || null;
+    const realRound = wcMatch.round || null;
     // correctMaxPts SIEMPRE basado en la ronda real, NUNCA en el bestSlot
     // Si no hay realRound, asumir Octavos (20) como default para partidos KO
     const correctMaxPts = realRound === 'Round of 16' ? 20 :
