@@ -31288,7 +31288,7 @@
       "row": 231,
       "name": "W97-W98",
       "max_pts": 48,
-      "bonus": 1,
+      "bonus": 2,
       "date": "2026-07-09",
       "result": "-",
       "predictions": {
@@ -31498,8 +31498,8 @@
     {
       "row": 232,
       "name": "W99-W100",
-      "max_pts": 62,
-      "bonus": 1,
+      "max_pts": 48,
+      "bonus": 3,
       "date": "2026-07-14",
       "result": "-",
       "predictions": {
@@ -31921,7 +31921,7 @@
       "row": 246,
       "name": "W101-W102",
       "max_pts": 84,
-      "bonus": 1,
+      "bonus": 3,
       "date": "2026-07-15",
       "result": "-",
       "predictions": {
