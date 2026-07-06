@@ -959,7 +959,7 @@ app.get('/api/jornada', async(req,res)=>{
     const classified4Today=new Set();
     for(const wm of (global._wcMatchesByTeam||[])){
       if(!dates.includes(wm.date)) continue;
-      if(wm.group!=='Round of 16') continue;
+      if(wm.round!=='Round of 16') continue;
       if(wm.homeScore==null) continue;
       // Determinar ganador
       let winner=null;
@@ -991,7 +991,7 @@ app.get('/api/jornada', async(req,res)=>{
     const classified2Today=new Set();
     for(const wm of (global._wcMatchesByTeam||[])){
       if(!dates.includes(wm.date)) continue;
-      if(wm.group!=='Quarter-final') continue;
+      if(wm.round!=='Quarter-final') continue;
       if(wm.homeScore==null) continue;
       let winner=null;
       if(wm.homeScore>wm.awayScore) winner=wm.homeTeam;
@@ -1022,7 +1022,7 @@ app.get('/api/jornada', async(req,res)=>{
     const classifiedFinalToday=new Set();
     for(const wm of (global._wcMatchesByTeam||[])){
       if(!dates.includes(wm.date)) continue;
-      if(wm.group!=='Semi-final') continue;
+      if(wm.round!=='Semi-final') continue;
       if(wm.homeScore==null) continue;
       let winner=null;
       if(wm.homeScore>wm.awayScore) winner=wm.homeTeam;
