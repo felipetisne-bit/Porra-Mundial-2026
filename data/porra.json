@@ -30443,8 +30443,8 @@
     {
       "row": 219,
       "name": "W89-W90",
-      "max_pts": 20,
-      "bonus": 1,
+      "max_pts": 31,
+      "bonus": 3,
       "date": "2026-07-04",
       "result": "-",
       "predictions": {
@@ -30865,8 +30865,8 @@
     {
       "row": 221,
       "name": "W91-W92",
-      "max_pts": 20,
-      "bonus": 1,
+      "max_pts": 31,
+      "bonus": 3,
       "date": "2026-07-11",
       "result": "-",
       "predictions": {
