@@ -393,10 +393,10 @@ const W_TO_MATCH = {
   'W95':'W87-W86',     // #95 Argentina vs Egipto (Australia)
   'W96':'W85-W88',     // #96 Suiza vs Colombia
   // Cuartos
-  'W97':'W90-W89',     // ganador Can-Mar vs ganador Par-Fra
-  'W98':'W91-W92',     // ganador Bra-Nor vs ganador Mex-Ing
-  'W99':'W93-W94',     // ganador Por-Esp vs ganador USA-Bel
-  'W100':'W95-W96',    // ganador Arg-Egi vs ganador Sui-Col
+  'W97':'W90-W89',     // #97 Francia vs Marruecos (09-jul)
+  'W98':'W93-W94',     // #98 W93 vs W94 (10-jul)
+  'W99':'W91-W92',     // #99 Noruega vs W92 (11-jul)
+  'W100':'W95-W96',   // #100 W95 vs W96 (11-jul)
   // Semis
   'W101':'W97-W98',
   'W102':'W99-W100',
@@ -893,7 +893,12 @@ app.get('/api/jornada', async(req,res)=>{
     const jornadaMatches=getJornadaMatches(dateStr,results);
     const summary=buildJornadaSummary(jornadaMatches,standings);
     const premios=buildPremiosFecha(jornadaMatches);
-    const allDates=[...new Set([...PORRA.group_score,...PORRA.ko_score].map(m=>m.date).filter(Boolean))].sort();
+    // Incluir también fechas de partidos KO reales de openfootball
+    const wcKODates = (global._wcMatchesByTeam||[]).map(m=>m.date).filter(Boolean);
+    const allDates=[...new Set([
+      ...[...PORRA.group_score,...PORRA.ko_score].map(m=>m.date).filter(Boolean),
+      ...wcKODates
+    ])].sort();
 
     // ── Puntos de posición de grupos y clasificados para la jornada ──
     const dates=Array.isArray(dateStr)?dateStr:[dateStr];
