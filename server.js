@@ -1134,6 +1134,11 @@ app.get('/api/jornada', async(req,res)=>{
       const k3=ko3Pts[p.name]||0;
       const totalHoy=matchPts+gpp+k16+k8+k4+k2+kF+k3;
       return {...p, matchPts, groupPosPts:gpp, ko16Pts:k16, ko8Pts:k8, ko4Pts:k4, ko2Pts:k2, koFinalPts:kF, ko3Pts:k3, todayPts:totalHoy, variation:totalHoy};
+    }).sort((a,b)=>b.todayPts-a.todayPts||b.total-a.total).map((p,i,arr)=>{
+      // Recalcular jornadaPos con el nuevo orden
+      let jp=1;
+      for(let x=0;x<i;x++) if(arr[x].todayPts>p.todayPts) jp=x+2;
+      return {...p, jornadaPos:jp};
     });
 
     res.json({ok:true,date:primaryDate,jornadaMatches,summary:summaryEnriched,premios,availableDates:allDates,lastUpdated:new Date().toISOString()});
