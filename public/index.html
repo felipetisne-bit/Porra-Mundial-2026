@@ -483,7 +483,7 @@ function renderDatePicker(elId, dates, selected, callback) {
   const el=document.getElementById(elId); if(!el) return;
   // Show last 3 + next 3 dates around today
   const today=new Date(new Date().getTime()-4*3600000).toISOString().slice(0,10);
-  const relevant=dates.filter(d=>d<=today).slice(-4).concat(dates.filter(d=>d>today).slice(0,2));
+  const relevant=dates.filter(d=>d<=today).slice(-3).concat(dates.filter(d=>d>today).slice(0,5));
   let html='<span style="font-size:.75em;color:var(--mu);font-weight:700;margin-right:4px">Fecha:</span>';
   relevant.forEach(d=>{
     const label=d===today?'Hoy':d.slice(5).replace('-','/');
