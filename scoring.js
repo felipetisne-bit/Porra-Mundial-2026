@@ -307,18 +307,11 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
       if (koScoreTracked[pName].has(predSorted)) continue;
       koScoreTracked[pName].add(predSorted);
 
-      // El bonus correcto depende del PARTIDO REAL, no del slot donde está la predicción
-      // Partidos con bonus=2 según las bases del Excel
-      const BONUS2_MATCHES = new Set([
-        // 16avos bonus=2
-        'ivorycoast_norway',   // Costa de Marfil vs Noruega
-        'croatia_portugal',    // Portugal vs Croacia
-        // Octavos bonus=2
-        'canada_morocco',      // Canadá vs Marruecos
-        'england_mexico',      // México vs Inglaterra
-        'argentina_egypt',     // Argentina vs Egipto
-      ]);
-      const effectiveBonus = BONUS2_MATCHES.has(predSorted) ? 2 : 1;
+      // El bonus correcto viene del propio slot en porra.json (m.bonus), no de una
+      // lista fija en el código. Así, cualquier bonus especial que se cargue en el
+      // JSON (Cuartos, Semis, Final, etc.) se respeta automáticamente, sin tener
+      // que acordarse de mantener una lista aparte sincronizada a mano.
+      const effectiveBonus = m.bonus || 1;
       const pts = calcKOScore(pred, realMatch.espn, m.max_pts, effectiveBonus) || 0;
       totals[pName].total += pts;
       totals[pName].bySection.ko_partidos += pts;
