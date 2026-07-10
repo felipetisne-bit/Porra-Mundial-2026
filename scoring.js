@@ -217,7 +217,9 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
   const playerNames = data.players || [];
 
   for (const name of playerNames) {
-    totals[name] = { name, total: 0, bySection: { grupos: 0, pos_grupos: 0, ko_partidos: 0, ko_equipos: 0, honor: 0, bota_balon: 0 } };
+    totals[name] = { name, total: 0, bySection: { grupos: 0, pos_grupos: 0, ko_partidos: 0, ko_equipos: 0, honor: 0, bota_balon: 0 },
+      // Desglose temporal por ronda, solo para diagnóstico — no afecta el total ni bySection.
+      byRound: { equipos: {}, partidos: {} } };
   }
 
   // ── 1. Group stage score matches ──────────────────────────────────
@@ -315,6 +317,7 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
       const pts = calcKOScore(pred, realMatch.espn, m.max_pts, effectiveBonus) || 0;
       totals[pName].total += pts;
       totals[pName].bySection.ko_partidos += pts;
+      totals[pName].byRound.partidos[slotRound||'?'] = (totals[pName].byRound.partidos[slotRound||'?']||0) + pts;
     }
   }
 
@@ -362,6 +365,7 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
       totals[pName]._tracked.add(trackKey);
       totals[pName].total += m.max_pts;
       totals[pName].bySection.ko_equipos += m.max_pts;
+      totals[pName].byRound.equipos[round] = (totals[pName].byRound.equipos[round]||0) + m.max_pts;
     }
   }
 
