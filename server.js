@@ -623,10 +623,25 @@ function getJornadaMatches(dateStr, results) {
     const wcKey1 = `${wcMatch.homeTeam}-${wcMatch.awayTeam}`;
     const wcKey2 = `${wcMatch.awayTeam}-${wcMatch.homeTeam}`;
     const wcResult = results[wcKey1] || results[wcKey2];
-    
+
+    // Calcular la ronda/max_pts real ANTES de buscar el slot, para que la
+    // búsqueda solo acepte casilleros de la ronda correcta. Antes esto se
+    // calculaba después, y si la primera búsqueda encontraba un casillero de
+    // OTRA ronda (p.ej. un jugador que escribió el mismo par de equipos en un
+    // casillero de Cuartos en vez de Semis), el código se quedaba con ese
+    // resultado equivocado y nunca llegaba a buscar el casillero correcto.
+    const realRoundEarly = wcMatch.round || null;
+    const correctMaxPtsEarly = realRoundEarly === 'Round of 16' ? 20 :
+                         realRoundEarly === 'Quarter-final' ? 31 :
+                         realRoundEarly === 'Semi-final' ? 48 :
+                         realRoundEarly === 'Match for third place' ? 62 :
+                         realRoundEarly === 'Final' ? 84 :
+                         realRoundEarly === 'Round of 32' ? 14 : 20;
+
     // Encontrar el slot del porra.json buscando predicciones que matcheen con estos equipos
     let bestSlot = null;
     for(const m of PORRA.ko_score){
+      if(m.max_pts !== correctMaxPtsEarly) continue; // solo casilleros de la ronda correcta
       // Verificar si alguna predicción de este slot tiene estos equipos
       let hasMatch = false;
       for(const pd of Object.values(m.predictions)){
@@ -649,6 +664,7 @@ function getJornadaMatches(dateStr, results) {
     if(!bestSlot){
       const nt1=norm(wcMatch.homeTeam), nt2=norm(wcMatch.awayTeam);
       for(const m of PORRA.ko_score){
+        if(m.max_pts !== correctMaxPtsEarly) continue; // solo casilleros de la ronda correcta
         let found=false;
         for(const pd of Object.values(m.predictions)){
           const pred=pd.pred||'';
@@ -676,18 +692,12 @@ function getJornadaMatches(dateStr, results) {
     };
     // Pasar datos del partido real para display correcto
     // SIEMPRE forzar nombre real del partido de openfootball
-    // Determinar max_pts y bonus correctos según la ronda real del partido
-    // (el bestSlot puede ser de una ronda diferente)
-    const realRound = wcMatch.round || null;
-    // correctMaxPts SIEMPRE basado en la ronda real, NUNCA en el bestSlot
-    // Si no hay realRound, asumir Octavos (20) como default para partidos KO
-    const correctMaxPts = realRound === 'Round of 16' ? 20 :
-                         realRound === 'Quarter-final' ? 31 :
-                         realRound === 'Semi-final' ? 48 :
-                         realRound === 'Match for third place' ? 62 :
-                         realRound === 'Final' ? 84 :
-                         realRound === 'Round of 32' ? 14 : 20; // default 20 para KO sin round
-    // Si el bestSlot es de ronda diferente al partido real, NO usar sus predicciones
+    // realRound/correctMaxPts ya se calcularon arriba (antes de buscar el slot)
+    // para que la búsqueda solo aceptara casilleros de la ronda correcta.
+    const realRound = realRoundEarly;
+    const correctMaxPts = correctMaxPtsEarly;
+    // Como bestSlot ya viene filtrado por ronda correcta (o es null), esto
+    // prácticamente siempre será true — pero se deja como salvaguarda.
     const slotIsCorrectRound = !bestSlot || (bestSlot.max_pts === correctMaxPts);
     const koSlot = {
       ...(slotIsCorrectRound ? slotToUse : {}),
