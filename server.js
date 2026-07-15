@@ -524,6 +524,41 @@ async function getResults() {
     if (team) results[m.name] = {team, status:'CLASSIFIED'};
   }
 
+  // ── Auto-resolver honores de EQUIPO (Campeón/Subcampeón/3º puesto) ────
+  // Estos SÍ se pueden derivar del resultado real del partido (Final y
+  // partido de 3er/4to puesto), así que no requieren carga manual en el
+  // panel de Admin. Los premios individuales (Bota/Balón de Oro/Plata/
+  // Bronce) siguen necesitando carga manual: el sistema no tiene ninguna
+  // fuente de datos de goleadores ni del Balón de Oro oficial de la FIFA.
+  let honorsChanged = false;
+  for (const r of Object.values(results)) {
+    if (!r || !r.isKO || r.status !== 'FT' || r.homeScore == null || r.awayScore == null) continue;
+    if (r.round === 'Final' && !honorsState['🥇Campeón']) {
+      let winner = null, loser = null;
+      if (r.homeScore > r.awayScore) { winner = r.homeTeam; loser = r.awayTeam; }
+      else if (r.awayScore > r.homeScore) { winner = r.awayTeam; loser = r.homeTeam; }
+      else if (r.penaltyWinner) { winner = r.penaltyWinner; loser = (r.homeTeam===winner) ? r.awayTeam : r.homeTeam; }
+      if (winner) {
+        honorsState['🥇Campeón'] = winner;
+        honorsState['🥈Subcampeón'] = loser;
+        honorsChanged = true;
+        console.log(`[HONORS] Auto-resuelto: Campeón=${winner}, Subcampeón=${loser}`);
+      }
+    }
+    if (r.round === 'Match for third place' && !honorsState['🥉3º puesto']) {
+      let winner = null;
+      if (r.homeScore > r.awayScore) winner = r.homeTeam;
+      else if (r.awayScore > r.homeScore) winner = r.awayTeam;
+      else if (r.penaltyWinner) winner = r.penaltyWinner;
+      if (winner) {
+        honorsState['🥉3º puesto'] = winner;
+        honorsChanged = true;
+        console.log(`[HONORS] Auto-resuelto: 3º puesto=${winner}`);
+      }
+    }
+  }
+  if (honorsChanged) saveAwards();
+
   const allMatches = wc.matches.map(m => {
     const liveM = live.liveMatches.find(l=>l.excelName===m.excelName);
     if(liveM) return {...m,...liveM};
