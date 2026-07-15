@@ -267,6 +267,7 @@ footer{text-align:center;padding:22px 14px;color:var(--mu);font-size:11px;border
 <div class="ctn">
   <div class="sec b">
     <div class="st bl"><span>🔮 Pronósticos de la Jornada</span></div>
+    <div id="pron-awards-summary"></div>
     <div class="date-picker" id="pron-date-picker"></div>
     <div id="pronosticos-content"><div class="loader"><div class="lring"></div></div></div>
   </div>
@@ -340,7 +341,10 @@ function showPage(name, el) {
   document.getElementById('page-'+name).classList.add('ac');
   el.classList.add('ac');
   if(name==='jornada'&&!currentJornadaDate) loadJornada();
-  if(name==='pronosticos') loadPronosticos();
+  if(name==='pronosticos'){
+    loadPronosticos();
+    if(awardsData.length) renderPronAwardsSummary(awardsData);
+  }
   if(name==='premios'){
     if(standings.length&&awardsData.length) renderAwards(awardsData);
     else load().then(()=>{ if(awardsData.length) renderAwards(awardsData); });
@@ -360,7 +364,7 @@ async function load(manual=false) {
       standings.forEach(p=>{ prevPositions[p.name]=p.pos; });
     }
     standings=newStandings; todayMatches=d.todayMatches||[]; awardsData=d.awardsDisplay||[];
-    if(awardsData.length) renderAwards(awardsData);
+    if(awardsData.length){ renderAwards(awardsData); renderPronAwardsSummary(awardsData); }
     renderHero(d.stats); renderMatches(todayMatches); renderStandings(standings);
     if(typeof updateRefreshRate==='function') updateRefreshRate();
     renderStats(d.stats,standings); renderNarrative(d.stats,standings);
@@ -802,41 +806,37 @@ function renderPronosticos(pronosticos) {
   document.getElementById('pronosticos-content').innerHTML=html;
 }
 
-// ─── AWARDS ───────────────────────────────────────────────────────────
-function renderAwards(awards) {
-  if(!awards.length) return;
+// ─── AWARDS (compartido entre Premios y el resumen en Pronósticos) ─────
+const AWARDS_COLS=[
+  {key:'Campeón',      icon:'🥇', short:'Campeón'},
+  {key:'Subcampeón',   icon:'🥈', short:'Subcampeón'},
+  {key:'3º puesto',    icon:'🥉', short:'3º'},
+  {key:'Bota de Oro',    icon:'⚽', short:'Bota Oro'},
+  {key:'Bota de Plata',  icon:'⚽', short:'Bota Plata'},
+  {key:'Bota de Bronce', icon:'⚽', short:'Bota Bronce'},
+  {key:'Balón de Oro',    icon:'🏅', short:'Balón Oro'},
+  {key:'Balón de Plata',  icon:'🏅', short:'Balón Plata'},
+  {key:'Balón de Bronce', icon:'🏅', short:'Balón Bronce'},
+];
+const AWARDS_PLAYER_NORM={'kylian mbappe':'Mbappé','kylian mbappé':'Mbappé','mbappe':'Mbappé','mbappé':'Mbappé','kilian mbappe':'Mbappé','kilian mbappé':'Mbappé','lamine yamal':'Lamine Yamal','lamin jamal':'Lamine Yamal','yamal':'Lamine Yamal','cristiano ronaldo':'Cristiano Ronaldo','cristiano':'Cristiano Ronaldo','cr7':'Cristiano Ronaldo','vinicius':'Vinicius','vinicius jr':'Vinicius','vinicius junior':'Vinicius','vini':'Vinicius','lionel messi':'Messi','messi':'Messi','julian alvarez':'Julián Álvarez','julián álvarez':'Julián Álvarez','raphinha':'Raphinha','raphina':'Raphinha','dembele':'Dembélé','dembélé':'Dembélé','bruno fernandes':'Bruno Fernandes','bruno fernandez':'Bruno Fernandes','olise':'Olise','olisse':'Olise','virgil van dijk':'Van Dijk','van dijk':'Van Dijk','vitinha':'Vitinha','vitina':'Vitinha','lautaro martinez':'Lautaro Martínez','harry kane':'Harry Kane','ferran torres':'Ferran Torres','pedri':'Pedri','depay':'Depay','de jong':'De Jong'};
+function awardsNormPlayer(s){ return AWARDS_PLAYER_NORM[(s||'').toLowerCase().trim()]||(s||'').trim(); }
+function findAwardIn(awards,k){ return awards.find(a=>a.label.includes(k))||null; }
 
-  // ── Cols to show in table ──────────────────────────────────────────
-  const COLS=[
-    {key:'Campeón',      icon:'🥇', short:'Campeón'},
-    {key:'Subcampeón',   icon:'🥈', short:'Subcampeón'},
-    {key:'3º puesto',    icon:'🥉', short:'3º'},
-    {key:'Bota de Oro',  icon:'⚽', short:'Bota Oro'},
-    {key:'Balón de Oro', icon:'🏅', short:'Balón Oro'},
-  ];
-  function findAward(k){ return awards.find(a=>a.label.includes(k))||null; }
-  const PLAYER_NORM={'kylian mbappe':'Mbappé','kylian mbappé':'Mbappé','mbappe':'Mbappé','mbappé':'Mbappé','kilian mbappe':'Mbappé','kilian mbappé':'Mbappé','lamine yamal':'Lamine Yamal','lamin jamal':'Lamine Yamal','yamal':'Lamine Yamal','cristiano ronaldo':'Cristiano Ronaldo','cristiano':'Cristiano Ronaldo','cr7':'Cristiano Ronaldo','vinicius':'Vinicius','vinicius jr':'Vinicius','vinicius junior':'Vinicius','vini':'Vinicius','lionel messi':'Messi','messi':'Messi','julian alvarez':'Julián Álvarez','julián álvarez':'Julián Álvarez','raphinha':'Raphinha','raphina':'Raphinha','dembele':'Dembélé','dembélé':'Dembélé','bruno fernandes':'Bruno Fernandes','bruno fernandez':'Bruno Fernandes','olise':'Olise','olisse':'Olise','virgil van dijk':'Van Dijk','van dijk':'Van Dijk','vitinha':'Vitinha','vitina':'Vitinha','lautaro martinez':'Lautaro Martínez','harry kane':'Harry Kane','ferran torres':'Ferran Torres','pedri':'Pedri','depay':'Depay','de jong':'De Jong'};
-  function normPlayer(s){ return PLAYER_NORM[(s||'').toLowerCase().trim()]||(s||'').trim(); }
-
-
-
-  // ── Stats block ───────────────────────────────────────────────────
-  let statsHtml='<div style="margin-bottom:18px">';
-
-  // Row 1: one card per category showing top-3 votes
-  statsHtml+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:12px">';
-  COLS.forEach(c=>{
-    const a=findAward(c.key); if(!a) return;
+// Genera solo la grilla de tarjetas (una por categoría) — usada tanto en
+// Premios (completo) como en el resumen compacto dentro de Pronósticos.
+function buildAwardsCardsHtml(awards){
+  let html='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:12px">';
+  AWARDS_COLS.forEach(c=>{
+    const a=findAwardIn(awards,c.key); if(!a) return;
     const known=!!a.result;
     const preds=Object.values(a.predictions||{});
     const total=preds.length;
-    // Count votes
     const votes={};
-    preds.forEach(p=>{ const v=normPlayer((p.pred||'').trim()); if(v&&v!=='-') votes[v]=(votes[v]||0)+1; });
+    preds.forEach(p=>{ const v=awardsNormPlayer((p.pred||'').trim()); if(v&&v!=='-') votes[v]=(votes[v]||0)+1; });
     const sorted=Object.entries(votes).sort((x,y)=>y[1]-x[1]);
     const unique=sorted.length;
     const top5=sorted.slice(0,5);
-    statsHtml+=`<div style="background:#f8f0ff;border-radius:10px;padding:12px;border:1px solid #e0c8ff">
+    html+=`<div style="background:#f8f0ff;border-radius:10px;padding:12px;border:1px solid #e0c8ff">
       <div style="font-size:.7em;font-weight:800;color:var(--p);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${c.icon} ${c.short}</div>
       ${known?`<div style="font-size:.75em;background:var(--v);color:#fff;border-radius:4px;padding:2px 6px;display:inline-block;margin-bottom:4px">✅ ${a.result}</div>`:''}
       ${top5.map(([v,n],i)=>{
@@ -854,7 +854,32 @@ function renderAwards(awards) {
       <div style="font-size:.65em;color:var(--mu);margin-top:4px">${unique} opciones distintas</div>
     </div>`;
   });
-  statsHtml+='</div>';
+  html+='</div>';
+  return html;
+}
+
+// Resumen compacto de premios que se muestra arriba en la pestaña Pronósticos
+function renderPronAwardsSummary(awards){
+  const el=document.getElementById('pron-awards-summary');
+  if(!el) return;
+  if(!awards||!awards.length){ el.innerHTML=''; return; }
+  el.innerHTML=`<div style="margin-bottom:10px">
+    <div style="font-size:.85em;font-weight:800;color:var(--p);margin-bottom:8px">🏆 Resumen de Premios</div>
+    ${buildAwardsCardsHtml(awards)}
+  </div>`;
+}
+
+function renderAwards(awards) {
+  if(!awards.length) return;
+  const COLS=AWARDS_COLS;
+  function findAward(k){ return findAwardIn(awards,k); }
+  function normPlayer(s){ return awardsNormPlayer(s); }
+
+  // ── Stats block ───────────────────────────────────────────────────
+  let statsHtml='<div style="margin-bottom:18px">';
+
+  // Row 1: one card per category showing top-3 votes
+  statsHtml+=buildAwardsCardsHtml(awards);
 
   // Row 2: global stats
   // Consensus index per category
