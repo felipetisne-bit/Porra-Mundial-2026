@@ -818,7 +818,49 @@ const AWARDS_COLS=[
   {key:'Balón de Plata',  icon:'🏅', short:'Balón Plata'},
   {key:'Balón de Bronce', icon:'🏅', short:'Balón Bronce'},
 ];
-const AWARDS_PLAYER_NORM={'kylian mbappe':'Mbappé','kylian mbappé':'Mbappé','mbappe':'Mbappé','mbappé':'Mbappé','kilian mbappe':'Mbappé','kilian mbappé':'Mbappé','lamine yamal':'Lamine Yamal','lamin jamal':'Lamine Yamal','yamal':'Lamine Yamal','cristiano ronaldo':'Cristiano Ronaldo','cristiano':'Cristiano Ronaldo','cr7':'Cristiano Ronaldo','vinicius':'Vinicius','vinicius jr':'Vinicius','vinicius junior':'Vinicius','vini':'Vinicius','lionel messi':'Messi','messi':'Messi','julian alvarez':'Julián Álvarez','julián álvarez':'Julián Álvarez','raphinha':'Raphinha','raphina':'Raphinha','dembele':'Dembélé','dembélé':'Dembélé','bruno fernandes':'Bruno Fernandes','bruno fernandez':'Bruno Fernandes','olise':'Olise','olisse':'Olise','virgil van dijk':'Van Dijk','van dijk':'Van Dijk','vitinha':'Vitinha','vitina':'Vitinha','lautaro martinez':'Lautaro Martínez','harry kane':'Harry Kane','ferran torres':'Ferran Torres','pedri':'Pedri','depay':'Depay','de jong':'De Jong'};
+const AWARDS_PLAYER_NORM={
+  // Mbappé
+  'kylian mbappe':'Mbappé','kylian mbappé':'Mbappé','mbappe':'Mbappé','mbappé':'Mbappé','kilian mbappe':'Mbappé','kilian mbappé':'Mbappé','mbape':'Mbappé',
+  // Cristiano Ronaldo
+  'cristiano ronaldo':'Cristiano Ronaldo','cristiano':'Cristiano Ronaldo','cr7':'Cristiano Ronaldo',
+  // Lamine Yamal
+  'lamine yamal':'Lamine Yamal','lamin jamal':'Lamine Yamal','yamal':'Lamine Yamal','l. yamal':'Lamine Yamal','lamine yamale':'Lamine Yamal',
+  // Messi
+  'lionel messi':'Messi','messi':'Messi',
+  // Vinicius
+  'vinicius':'Vinicius','vinicius jr':'Vinicius','vinicius junior':'Vinicius','vini':'Vinicius','vinicious':'Vinicius','vinicus jr':'Vinicius',
+  // Harry Kane
+  'harry kane':'Harry Kane','kane':'Harry Kane','h. keane':'Harry Kane',
+  // Julián Álvarez
+  'julian alvarez':'Julián Álvarez','julián álvarez':'Julián Álvarez','j. alvarez':'Julián Álvarez',
+  // Erling Haaland
+  'erling haaland':'Erling Haaland','halland':'Erling Haaland',
+  // Dembélé
+  'dembele':'Dembélé','dembélé':'Dembélé',
+  // Raphinha
+  'raphinha':'Raphinha','raphina':'Raphinha','raphiña':'Raphinha',
+  // Vitinha
+  'vitinha':'Vitinha','vitina':'Vitinha','vitiña':'Vitinha',
+  // Olise
+  'olise':'Olise','olisse':'Olise','michael olise':'Olise',
+  // Bruno Fernandes
+  'bruno fernandes':'Bruno Fernandes','bruno fernandez':'Bruno Fernandes',
+  // Pedri
+  'pedri':'Pedri','pedri (españa)':'Pedri',
+  // Van Dijk
+  'van dijk':'Van Dijk','virgil van dijk':'Van Dijk',
+  // Otros (una sola variante conocida, se dejan tal cual con capitalización estándar)
+  'ferran torres':'Ferran Torres','depay':'Depay',
+  'gonzalo ramos (portugal)':'Gonçalo Ramos','gonçalo ramos':'Gonçalo Ramos',
+  'havertz':'Havertz','igor thiago':'Igor Thiago','kramaric':'Kramarić',
+  'mikel oyarzabal':'Mikel Oyarzabal','oyarzabal':'Mikel Oyarzabal','mike oyabarzabal':'Mikel Oyarzabal',
+  'mane':'Mané','lautaro martinez':'Lautaro Martínez','cody gakpo':'Cody Gakpo',
+  'joao felix':'João Félix','morata':'Morata','ueda (japon)':'Ueda (Japón)',
+  'luis diaz':'Luis Díaz','florian wirtz':'Florian Wirtz',
+  'jude bellingham':'Jude Bellingham','hachaf hakimi':'Achraf Hakimi',
+  'kovacic':'Kovačić','bernardo silva':'Bernardo Silva','musiala':'Musiala',
+  'de jong':'De Jong',
+};
 function awardsNormPlayer(s){ return AWARDS_PLAYER_NORM[(s||'').toLowerCase().trim()]||(s||'').trim(); }
 function findAwardIn(awards,k){ return awards.find(a=>a.label.includes(k))||null; }
 
@@ -994,6 +1036,7 @@ function renderAwards(awards) {
       const pred=a?.predictions?.find(p=>p.player===name);
       const known=a&&!!a.result;
       let cell=pred?pred.pred:'-';
+      if(pred&&a.type==='player'&&cell&&cell!=='-') cell=awardsNormPlayer(cell);
       let style='padding:6px;text-align:center;font-size:.78em;';
       if(known&&pred){
         style+=pred.correct?'color:var(--v);font-weight:800;':'color:var(--r);opacity:.7;text-decoration:line-through;';
