@@ -1117,6 +1117,8 @@ PROHIBIDO: Escribir como noticia o informe. Hacer listas de resultados. Repetir 
 
 OBJETIVO: Que todos busquen su nombre, se rían, discutan la crónica tanto como los partidos y esperen la de mañana.
 
+CUENTA REGRESIVA DEL TORNEO: el contexto trae "torneoRestante" con "partidosRestantes" (cuántos partidos de eliminación directa faltan en TODO el torneo, no solo hoy) y "premiosPendientes" (cuántos de los 9 premios de fin de torneo —Campeón, Subcampeón, 3º puesto, Botas y Balones— siguen sin definirse). Sin convertirlo en una fórmula fija ni repetirlo con las mismas palabras cada vez, dejá que esa cercanía del final se cuele en el tono de la crónica —más nostálgico, más urgente o más ansioso mientras menos quede—. Podés mencionarlo en la apertura, en el cierre, o de pasada en medio de una historia; no hace falta un párrafo dedicado. Si partidosRestantes es 0 y premiosPendientes también, tratá la jornada como el final de la novela, no como una fecha más.
+
 Entre 900 y 1.100 palabras. Ritmo. Sin párrafos eternos.
 
 Datos: ${JSON.stringify(context)}`
@@ -1248,13 +1250,17 @@ app.get('/api/analysis/:type', async(req,res)=>{
       }
       return { name:m.name, resultado:resultStr, status:m.liveStatus||'NS' };
     });
+    const partidosRestantes = (global._wcMatchesByTeam||[]).filter(m => m.status !== 'FT').length;
+    const premiosPendientes = PORRA.honors.filter(h => !honorsState[h.name]).length
+      + PORRA.player_awards.filter(a => !awardsState[a.name.trim()]).length;
     const context={
       date:dateStr,
       IMPORTANTE:'USA SOLO los resultados del campo "partidos". NUNCA inventes marcadores.',
       partidos:matchesForCron,
       rankingGeneral:standings.slice(0,5).map((p,i)=>({pos:i+1,name:p.name,total:p.total})),
       rankingJornada:summaryEnrichedCron.slice(0,10).map((p,i)=>({pos:i+1,name:p.name,ptsHoy:p.todayPts,totalGeneral:p.total})),
-      premios
+      premios,
+      torneoRestante:{ partidosRestantes, premiosPendientes }
     };
     const text=await generateGPTAnalysis(type,context);
     res.json({ok:true,text,date:dateStr});
