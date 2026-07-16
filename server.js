@@ -1334,6 +1334,7 @@ app.get('/api/pronosticos', async(req,res)=>{
       }
       // Para KO: calcular quiénes tienen cada equipo en octavos (cualquier slot)
       let team1Players = [], team2Players = [], nextRound = 'Octavofinalista';
+      let specialBoxes = null; // Casos especiales: Final y 3ro/4to puesto
       if(isKO){
         // Obtener equipos del partido — desde espnResult o desde displayName
         let team1, team2;
@@ -1348,44 +1349,76 @@ app.get('/api/pronosticos', async(req,res)=>{
             team2 = vsParts[1].trim();
           }
         }
-        // Determinar la ronda KO siguiente según el partido actual
-        // Usar max_pts del partido para determinar la siguiente fase
-        // max_pts=20 → Octavos → siguiente=Cuartos
-        // max_pts=31 → Cuartos → siguiente=Semis
-        // max_pts=48 → Semis → siguiente=Final
-        // max_pts=14 → 16avos → siguiente=Octavos
         const matchMaxPts = m.max_pts || 14;
-        nextRound = matchMaxPts <= 14 ? 'Octavofinalista' :
-                    matchMaxPts <= 20 ? 'Cuartofinalista' :
-                    matchMaxPts <= 31 ? 'Semifinalista' :
-                    matchMaxPts <= 48 ? 'Finalista' : 'Octavofinalista';
-        const nextSlots = PORRA.ko_team.filter(m=>m.name.startsWith(nextRound));
-        console.log(`[TEAM_PLAYERS] team1=${team1} team2=${team2} nextSlots=${nextSlots.length}`);
-        if(team1){
-          const seen = new Set();
-          for(const slot of nextSlots){
-            for(const [pname,pd] of Object.entries(slot.predictions)){
-              if(seen.has(pname)) continue;
-              if((calcTeamPred(pd.pred,team1,slot.max_pts)||0)>0){
-                seen.add(pname);
-                team1Players.push(pname);
-              }
-            }
-          }
-          console.log(`[TEAM_PLAYERS] ${team1}: ${team1Players.length} jugadores`);
+
+        // Helper: lista de jugadores cuya predicción de honor coincide con un equipo
+        function playersForHonor(honorNameSubstr, team){
+          const honor = PORRA.honors.find(h=>h.name.includes(honorNameSubstr));
+          if(!honor || !team) return [];
+          return Object.entries(honor.predictions)
+            .filter(([,pd])=>(calcTeamPred(pd.pred,team,honor.max_pts)||0)>0)
+            .map(([name])=>name);
         }
-        if(team2){
-          const seen = new Set();
-          for(const slot of nextSlots){
-            for(const [pname,pd] of Object.entries(slot.predictions)){
-              if(seen.has(pname)) continue;
-              if((calcTeamPred(pd.pred,team2,slot.max_pts)||0)>0){
-                seen.add(pname);
-                team2Players.push(pname);
+
+        if(matchMaxPts === 84){
+          // FINAL: en vez de "equipo en Octavos", mostrar Campeón/Vicecampeón por equipo
+          specialBoxes = [
+            {label:`Campeón ${team1}`, players: playersForHonor('Campeón', team1)},
+            {label:`Campeón ${team2}`, players: playersForHonor('Campeón', team2)},
+            {label:`Vicecampeón ${team1}`, players: playersForHonor('Subcampeón', team1)},
+            {label:`Vicecampeón ${team2}`, players: playersForHonor('Subcampeón', team2)},
+          ];
+        } else if(matchMaxPts === 62){
+          // 3ro/4to PUESTO: mostrar Tercero/Cuarto por equipo (Cuarto es informativo,
+          // no suma puntos en la porra — se infiere del mismo pronóstico de 3er puesto:
+          // quien le apuesta al equipo contrario como 3ro, implícitamente pone a este 4to)
+          const tercerosTeam1 = playersForHonor('3º puesto', team1);
+          const tercerosTeam2 = playersForHonor('3º puesto', team2);
+          specialBoxes = [
+            {label:`3º puesto ${team1}`, players: tercerosTeam1},
+            {label:`3º puesto ${team2}`, players: tercerosTeam2},
+            {label:`4º puesto ${team1} (informativo)`, players: tercerosTeam2},
+            {label:`4º puesto ${team2} (informativo)`, players: tercerosTeam1},
+          ];
+        } else {
+          // Determinar la ronda KO siguiente según el partido actual
+          // Usar max_pts del partido para determinar la siguiente fase
+          // max_pts=20 → Octavos → siguiente=Cuartos
+          // max_pts=31 → Cuartos → siguiente=Semis
+          // max_pts=48 → Semis → siguiente=Final
+          // max_pts=14 → 16avos → siguiente=Octavos
+          nextRound = matchMaxPts <= 14 ? 'Octavofinalista' :
+                      matchMaxPts <= 20 ? 'Cuartofinalista' :
+                      matchMaxPts <= 31 ? 'Semifinalista' :
+                      matchMaxPts <= 48 ? 'Finalista' : 'Octavofinalista';
+          const nextSlots = PORRA.ko_team.filter(m=>m.name.startsWith(nextRound));
+          console.log(`[TEAM_PLAYERS] team1=${team1} team2=${team2} nextSlots=${nextSlots.length}`);
+          if(team1){
+            const seen = new Set();
+            for(const slot of nextSlots){
+              for(const [pname,pd] of Object.entries(slot.predictions)){
+                if(seen.has(pname)) continue;
+                if((calcTeamPred(pd.pred,team1,slot.max_pts)||0)>0){
+                  seen.add(pname);
+                  team1Players.push(pname);
+                }
               }
             }
+            console.log(`[TEAM_PLAYERS] ${team1}: ${team1Players.length} jugadores`);
           }
-          console.log(`[TEAM_PLAYERS] ${team2}: ${team2Players.length} jugadores`);
+          if(team2){
+            const seen = new Set();
+            for(const slot of nextSlots){
+              for(const [pname,pd] of Object.entries(slot.predictions)){
+                if(seen.has(pname)) continue;
+                if((calcTeamPred(pd.pred,team2,slot.max_pts)||0)>0){
+                  seen.add(pname);
+                  team2Players.push(pname);
+                }
+              }
+            }
+            console.log(`[TEAM_PLAYERS] ${team2}: ${team2Players.length} jugadores`);
+          }
         }
       }
       return {
@@ -1401,7 +1434,7 @@ app.get('/api/pronosticos', async(req,res)=>{
                         nextRound === 'Cuartofinalista' ? 'Cuartos' :
                         nextRound === 'Semifinalista' ? 'Semis' : 'Final'
                         ) : null,
-        team1Players, team2Players
+        team1Players, team2Players, specialBoxes
       };
     });
     const dates=Array.isArray(dateStr)?dateStr:[dateStr];
