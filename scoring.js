@@ -278,6 +278,65 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
   // Estos vienen en wcMatches pasados como parámetro
   // Por ahora usar espnResults que ya los incluye si están en football-data
 
+  // ── Bonus OFICIAL por partido (16avos y Octavos) ───────────────────
+  // El bonus de un partido real depende de SU IDENTIDAD OFICIAL (según
+  // posiciones de grupo / numeración de partido), NO del casillero donde un
+  // jugador cualquiera haya escrito su pronóstico (que puede no coincidir).
+  const BEST3_ASSIGNMENT = {
+    '3ABCDF': '3D', '3CDFGH': '3F', '3CEFHI': '3E', '3EHIJK': '3K',
+    '3AEHIJ': '3I', '3BEFIJ': '3B', '3EFGIJ': '3J', '3DEIJL': '3L',
+  };
+  function resolveGroupCodeTeam(code) {
+    if (!code) return null;
+    if (/^[1-4][A-L]$/.test(code)) return espnResults[code] || null;
+    if (BEST3_ASSIGNMENT[code]) return espnResults[BEST3_ASSIGNMENT[code]] || null;
+    return null;
+  }
+  const officialBonusForPair = {}; // key: "teamA_teamB" normalizado → bonus oficial
+  for (const m of data.ko_score) {
+    if (m.max_pts > 14) continue; // solo aplica a 16avos (slots con código de grupo)
+    const parts = m.name.split('-');
+    if (parts.length < 2) continue;
+    const t1 = resolveGroupCodeTeam(parts[0].trim());
+    const t2 = resolveGroupCodeTeam(parts.slice(1).join('-').trim());
+    if (!t1 || !t2) continue;
+    const key = [norm(t1), norm(t2)].sort().join('_');
+    officialBonusForPair[key] = m.bonus;
+  }
+  // Mapa "W73".."W88" → slot de 16avos, verificado partido por partido contra
+  // la planilla maestra real del admin (números de partido 73-88).
+  const W16_CODE_TO_SLOT = {
+    'W73':'2A-2B', 'W74':'1E-3ABCDF', 'W75':'1F-2C', 'W76':'1C-2F',
+    'W77':'1I-3CDFGH', 'W78':'2E-2I', 'W79':'1A-3CEFHI', 'W80':'1L-3EHIJK',
+    'W81':'1D-3BEFIJ', 'W82':'1G-3AEHIJ', 'W83':'2K-2L', 'W84':'1H-2J',
+    'W85':'1B-3EFGIJ', 'W86':'1J-2H', 'W87':'1K-3DEIJL', 'W88':'2D-2G',
+  };
+  function resolveW16Team(code) {
+    const slotName = W16_CODE_TO_SLOT[code];
+    if (!slotName) return null;
+    const parts = slotName.split('-');
+    const t1 = resolveGroupCodeTeam(parts[0].trim());
+    const t2 = resolveGroupCodeTeam(parts.slice(1).join('-').trim());
+    if (!t1 || !t2) return null;
+    const key = [norm(t1), norm(t2)].sort().join('_');
+    const real = realKOMatches[key];
+    if (!real || !real.espn) return null;
+    const { homeTeam, awayTeam, homeScore, awayScore, penaltyWinner } = real.espn;
+    if (homeScore > awayScore) return homeTeam;
+    if (awayScore > homeScore) return awayTeam;
+    return penaltyWinner || null;
+  }
+  for (const m of data.ko_score) {
+    if (m.max_pts <= 14 || m.max_pts > 20) continue; // solo Octavos
+    if (!/^W\d+-W\d+$/.test(m.name)) continue;
+    const parts = m.name.split('-');
+    const t1 = resolveW16Team(parts[0].trim());
+    const t2 = resolveW16Team(parts[1].trim());
+    if (!t1 || !t2) continue;
+    const key = [norm(t1), norm(t2)].sort().join('_');
+    officialBonusForPair[key] = m.bonus;
+  }
+
   const koScoreTracked = {}; // evitar doble puntaje por jugador si tiene misma pred en dos slots
   for (const m of data.ko_score) {
     for (const [pName, pd] of Object.entries(m.predictions)) {
@@ -309,11 +368,10 @@ function recalcStandings(data, espnResults = {}, awardsState = {}, honorState = 
       if (koScoreTracked[pName].has(predSorted)) continue;
       koScoreTracked[pName].add(predSorted);
 
-      // El bonus correcto viene del propio slot en porra.json (m.bonus), no de una
-      // lista fija en el código. Así, cualquier bonus especial que se cargue en el
-      // JSON (Cuartos, Semis, Final, etc.) se respeta automáticamente, sin tener
-      // que acordarse de mantener una lista aparte sincronizada a mano.
-      const effectiveBonus = m.bonus || 1;
+      // El bonus correcto es el OFICIAL del partido real (ver arriba). Si no
+      // se pudo resolver (rondas posteriores a Octavos, que no usan códigos
+      // de grupo/W), se usa el bonus del propio casillero como respaldo.
+      const effectiveBonus = officialBonusForPair[predSorted] ?? (m.bonus || 1);
       const pts = calcKOScore(pred, realMatch.espn, m.max_pts, effectiveBonus) || 0;
       totals[pName].total += pts;
       totals[pName].bySection.ko_partidos += pts;
