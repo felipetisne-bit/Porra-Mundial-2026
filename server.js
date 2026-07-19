@@ -248,7 +248,18 @@ async function refreshLive() {
         }
         const excelName = findExcelMatchForESPN(home, away, [...PORRA.group_score, ...PORRA.ko_score]);
         const isKORound = !match.competition || match.stage !== 'GROUP_STAGE';
-        const resultObj = {homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:home,awayTeam:away,penaltyWinner:penWinner,isKO:isKORound};
+        // Mapear el "stage" de football-data.org a los nombres de ronda que usa
+        // el resto del sistema. Sin esto, la auto-resolución de honores (Campeón/
+        // Subcampeón/3º puesto en getResults) nunca detecta que este resultado
+        // corresponde a la Final o al partido de 3er puesto, porque esa lógica
+        // exige result.round==='Final' / 'Match for third place' explícitamente.
+        const STAGE_TO_ROUND = {
+          'FINAL':'Final', 'THIRD_PLACE':'Match for third place', '3RD_PLACE':'Match for third place',
+          'SEMI_FINALS':'Semi-final', 'QUARTER_FINALS':'Quarter-final',
+          'LAST_16':'Round of 16', 'LAST_32':'Round of 32',
+        };
+        const inferredRound = STAGE_TO_ROUND[match.stage] || undefined;
+        const resultObj = {homeScore:hScore,awayScore:aScore,status:'FT',homeTeam:home,awayTeam:away,penaltyWinner:penWinner,isKO:isKORound,round:inferredRound};
         const key = `${home}-${away}`;
         if(!liveResults[key]) liveResults[key] = resultObj;
         if(excelName && !liveResults[excelName]) {
@@ -530,9 +541,17 @@ async function getResults() {
   // panel de Admin. Los premios individuales (Bota/Balón de Oro/Plata/
   // Bronce) siguen necesitando carga manual: el sistema no tiene ninguna
   // fuente de datos de goleadores ni del Balón de Oro oficial de la FIFA.
+  // NOTA: se revisan DOS fuentes (resultados combinados + openfootball) para
+  // no depender de que una sola fuente etiquete bien el campo "round" — ya
+  // pasó que football-data.org no lo traía, dejando esto sin auto-resolver
+  // aunque el resultado real ya estuviera disponible.
   let honorsChanged = false;
-  for (const r of Object.values(results)) {
-    if (!r || !r.isKO || r.status !== 'FT' || r.homeScore == null || r.awayScore == null) continue;
+  const honorCandidates = [
+    ...Object.values(results),
+    ...(global._wcMatchesByTeam||[]),
+  ];
+  for (const r of honorCandidates) {
+    if (!r || r.status !== 'FT' || r.homeScore == null || r.awayScore == null) continue;
     if (r.round === 'Final' && !honorsState['🥇Campeón']) {
       let winner = null, loser = null;
       if (r.homeScore > r.awayScore) { winner = r.homeTeam; loser = r.awayTeam; }
