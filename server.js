@@ -828,6 +828,45 @@ function buildJornadaSummary(jornadaMatches, fullStandings) {
 function computeClassificationBonusToday(dateStr, results) {
   const dates=Array.isArray(dateStr)?dateStr:[dateStr];
 
+  // Honores (Campeón/Subcampeón/3º puesto): se resuelven el día que TERMINA el
+  // partido correspondiente (Final o partido de 3er puesto), a diferencia de
+  // las categorías de "clasificación" (que se resuelven cuando el equipo llega,
+  // no cuando gana). Antes esto no se sumaba nunca al puntaje "de hoy" de la
+  // Jornada, aunque sí se sumaba correctamente al total general.
+  const honorPts={};
+  for(const wm of (global._wcMatchesByTeam||[])){
+    if(!dates.includes(wm.date)) continue;
+    if(wm.homeScore==null) continue;
+    let winner=null, loser=null;
+    if(wm.homeScore>wm.awayScore){ winner=wm.homeTeam; loser=wm.awayTeam; }
+    else if(wm.awayScore>wm.homeScore){ winner=wm.awayTeam; loser=wm.homeTeam; }
+    else if(wm.penaltyWinner){ winner=wm.penaltyWinner; loser=(wm.penaltyWinner===wm.homeTeam)?wm.awayTeam:wm.homeTeam; }
+    if(!winner) continue;
+
+    if(wm.round==='Final'){
+      const campeon = PORRA.honors.find(h=>h.name.includes('Campeón'));
+      const subcampeon = PORRA.honors.find(h=>h.name.includes('Subcampeón'));
+      if(campeon){
+        for(const [pName,pd] of Object.entries(campeon.predictions)){
+          if((calcTeamPred(pd.pred,winner,campeon.max_pts)||0)>0) honorPts[pName]=(honorPts[pName]||0)+campeon.max_pts;
+        }
+      }
+      if(subcampeon && loser){
+        for(const [pName,pd] of Object.entries(subcampeon.predictions)){
+          if((calcTeamPred(pd.pred,loser,subcampeon.max_pts)||0)>0) honorPts[pName]=(honorPts[pName]||0)+subcampeon.max_pts;
+        }
+      }
+    }
+    if(wm.round==='Match for third place'){
+      const tercero = PORRA.honors.find(h=>h.name.includes('3º puesto'));
+      if(tercero){
+        for(const [pName,pd] of Object.entries(tercero.predictions)){
+          if((calcTeamPred(pd.pred,winner,tercero.max_pts)||0)>0) honorPts[pName]=(honorPts[pName]||0)+tercero.max_pts;
+        }
+      }
+    }
+  }
+
   // group_pos: posiciones de grupo que cierran en estas fechas
   const groupPosPts={};
   for(const m of PORRA.group_pos.filter(m=>dates.includes(m.date))){
@@ -968,11 +1007,21 @@ function computeClassificationBonusToday(dateStr, results) {
   }
 
   // 3er/4to puesto: equipos que perdieron Semis y juegan el partido de consolación
+  // (mismo patrón que Finalista arriba, pero con el PERDEDOR de cada semifinal,
+  // y filtrando por la fecha real del partido — antes esto no filtraba por fecha
+  // en absoluto, así que el bono aparecía repetido cada vez que se consultaba
+  // cualquier jornada posterior a las semifinales, en vez de solo el día en que
+  // cada semifinal terminó).
   const classified3Today=new Set();
-  for(const m of PORRA.ko_team.filter(m=>m.name.startsWith('3º y 4º'))){
-    const espn=results[m.name];
-    if(!espn||espn.status!=='CLASSIFIED'||!espn.team) continue;
-    classified3Today.add(espn.team);
+  for(const wm of (global._wcMatchesByTeam||[])){
+    if(!dates.includes(wm.date)) continue;
+    if(wm.round!=='Semi-final') continue;
+    if(wm.homeScore==null) continue;
+    let loser=null;
+    if(wm.homeScore>wm.awayScore) loser=wm.awayTeam;
+    else if(wm.awayScore>wm.homeScore) loser=wm.homeTeam;
+    else if(wm.penaltyWinner) loser=(wm.penaltyWinner===wm.homeTeam)?wm.awayTeam:wm.homeTeam;
+    if(loser) classified3Today.add(loser);
   }
   const ko3Pts={};
   if(classified3Today.size>0){
@@ -1028,7 +1077,7 @@ function computeClassificationBonusToday(dateStr, results) {
     }
   }
 
-  return {groupPosPts, ko16Pts, ko8Pts, ko4Pts, ko2Pts, koFinalPts, ko3Pts};
+  return {groupPosPts, ko16Pts, ko8Pts, ko4Pts, ko2Pts, koFinalPts, ko3Pts, honorPts};
 }
 
 function buildPremiosFecha(jornadaMatches, trueTotalsMap = null) {
@@ -1172,7 +1221,7 @@ app.get('/api/jornada', async(req,res)=>{
     // Puntos por clasificación de ronda (grupo, 16avos, octavos, cuartos, semis, final, 3ro/4to)
     // usando la MISMA función que la crónica, para que ambas vistas coincidan siempre.
     const dates=Array.isArray(dateStr)?dateStr:[dateStr];
-    const {groupPosPts, ko16Pts, ko8Pts, ko4Pts, ko2Pts, koFinalPts, ko3Pts} = computeClassificationBonusToday(dateStr, results);
+    const {groupPosPts, ko16Pts, ko8Pts, ko4Pts, ko2Pts, koFinalPts, ko3Pts, honorPts} = computeClassificationBonusToday(dateStr, results);
 
     // Enriquecer summary con pts de pos_grupos y ko_16 de hoy
     // todayPts y variation = partidos + posgrupo + 16avos
@@ -1185,8 +1234,9 @@ app.get('/api/jornada', async(req,res)=>{
       const k2=ko2Pts[p.name]||0;
       const kF=koFinalPts[p.name]||0;
       const k3=ko3Pts[p.name]||0;
-      const totalHoy=matchPts+gpp+k16+k8+k4+k2+kF+k3;
-      return {...p, matchPts, groupPosPts:gpp, ko16Pts:k16, ko8Pts:k8, ko4Pts:k4, ko2Pts:k2, koFinalPts:kF, ko3Pts:k3, todayPts:totalHoy, variation:totalHoy};
+      const hp=honorPts[p.name]||0;
+      const totalHoy=matchPts+gpp+k16+k8+k4+k2+kF+k3+hp;
+      return {...p, matchPts, groupPosPts:gpp, ko16Pts:k16, ko8Pts:k8, ko4Pts:k4, ko2Pts:k2, koFinalPts:kF, ko3Pts:k3, honorPts:hp, todayPts:totalHoy, variation:totalHoy};
     }).sort((a,b)=>b.todayPts-a.todayPts||b.total-a.total).map((p,i,arr)=>{
       // Recalcular jornadaPos con el nuevo orden
       let jp=1;
@@ -1217,7 +1267,7 @@ app.get('/api/analysis/:type', async(req,res)=>{
     const summary=buildJornadaSummary(jornadaMatches,standings);
     // Puntos por clasificación de ronda (misma función que usa /api/jornada,
     // incluye grupo, 16avos, octavos, cuartos, semis, final y 3ro/4to puesto).
-    const {groupPosPts:groupPosPtsCron, ko16Pts:ko16PtsCron, ko8Pts:ko8PtsCron, ko4Pts:ko4PtsCron, ko2Pts:ko2PtsCron, koFinalPts:koFinalPtsCron, ko3Pts:ko3PtsCron} = computeClassificationBonusToday(dateStr, results);
+    const {groupPosPts:groupPosPtsCron, ko16Pts:ko16PtsCron, ko8Pts:ko8PtsCron, ko4Pts:ko4PtsCron, ko2Pts:ko2PtsCron, koFinalPts:koFinalPtsCron, ko3Pts:ko3PtsCron, honorPts:honorPtsCron} = computeClassificationBonusToday(dateStr, results);
     const summaryEnrichedCron=summary.map(p=>{
       const matchPts=p.todayPts||0;
       const gpp=groupPosPtsCron[p.name]||0;
@@ -1227,7 +1277,8 @@ app.get('/api/analysis/:type', async(req,res)=>{
       const k2=ko2PtsCron[p.name]||0;
       const kF=koFinalPtsCron[p.name]||0;
       const k3=ko3PtsCron[p.name]||0;
-      const totalHoy=matchPts+gpp+k16+k8+k4+k2+kF+k3;
+      const hp=honorPtsCron[p.name]||0;
+      const totalHoy=matchPts+gpp+k16+k8+k4+k2+kF+k3+hp;
       return {...p,todayPts:totalHoy};
     }).sort((a,b)=>b.todayPts-a.todayPts||b.total-a.total);
     // Premios/badges calculados con el total REAL del día (partidos + clasificados),
